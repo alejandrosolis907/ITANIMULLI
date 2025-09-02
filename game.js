@@ -222,6 +222,7 @@
     ctx.lineJoin = 'round';
     ctx.lineCap = 'round';
     ctx.strokeStyle = color;
+    ctx.fillStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 8;
     // Triángulo hacia arriba
@@ -233,6 +234,9 @@
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
+    ctx.globalAlpha = 0.3;
+    ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.stroke();
     // Triángulo hacia abajo
     ctx.beginPath();
@@ -243,6 +247,9 @@
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
+    ctx.globalAlpha = 0.3;
+    ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.stroke();
     ctx.restore();
   }
