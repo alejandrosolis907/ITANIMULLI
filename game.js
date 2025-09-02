@@ -608,15 +608,18 @@
       this.alive = true;
       this.aimTime = 0.4 + rand(0,0.25);
       this.fired = false;
-      this.laserY = player.y - player.height()*0.4; // posición objetivo del láser
+      // objetivo dinámico del láser
+      this.targetX = player.x() + player.width()*0.3;
+      this.targetY = player.y - player.height()*0.4;
     }
     update(dt) {
       // si está cerca del jugador, frena para disparar
       if (!this.fired && this.x < W*0.55) {
         this.speed = Math.max(this.speed*0.92, 30);
         this.aimTime -= dt;
-        // apuntar continuamente a la altura del jugador
-        this.laserY = player.y - player.height()*0.4;
+        // apuntar continuamente al jugador
+        this.targetX = player.x() + player.width()*0.3;
+        this.targetY = player.y - player.height()*0.4;
         if (this.aimTime <= 0) this.fire();
       } else {
         this.x -= this.speed * dt;
@@ -624,10 +627,10 @@
       if (this.x < -60) this.alive = false;
     }
     fire() {
-      // Dispara un láser horizontal rojo a la altura actual del jugador (evitable saltando)
-      const py = player.y - player.height()*0.4;
-      this.laserY = py;
-      lasers.push(new Laser(this.x - 8, this.laserY));
+      // Dispara un láser rojo dirigido al jugador (evitable saltando)
+      const eyeX = this.x;
+      const eyeY = this.y - 6;
+      lasers.push(new Laser(eyeX, eyeY, this.targetX, this.targetY));
       this.fired = true;
       Audio.burstLaser();
     }
@@ -668,8 +671,8 @@
         ctx.strokeStyle = '#ff8a8a';
         ctx.setLineDash([6,6]);
         ctx.beginPath();
-        ctx.moveTo(this.x-8, this.y-30);
-        ctx.lineTo(W, this.laserY);
+        ctx.moveTo(this.x, this.y-6);
+        ctx.lineTo(this.targetX, this.targetY);
         ctx.stroke();
         ctx.restore();
       }
@@ -678,29 +681,40 @@
   }
 
   class Laser {
-    constructor(x, y) {
+    constructor(x, y, tx, ty) {
       this.x = x; this.y = y;
+      const ang = Math.atan2(ty - y, tx - x);
+      const speed = 800;
+      this.vx = Math.cos(ang) * speed;
+      this.vy = Math.sin(ang) * speed;
+      this.prevX = x; this.prevY = y;
       this.alive = true;
-      this.ttl = 0.8; // duración del rayo
+      this.ttl = 1.5;
     }
     update(dt) {
+      this.prevX = this.x; this.prevY = this.y;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
       this.ttl -= dt;
-      if (this.ttl <= 0) this.alive = false;
+      if (this.ttl <= 0 || this.x < -50 || this.x > W+50 || this.y < -50 || this.y > H+50) this.alive = false;
     }
     render(ctx) {
-      // rayo horizontal rojo
       ctx.save();
       ctx.strokeStyle = 'rgba(255,0,0,.9)';
       ctx.lineWidth = 4;
       ctx.shadowColor = '#ff0000';
       ctx.shadowBlur = 8;
       ctx.beginPath();
-      ctx.moveTo(this.x, this.y);
-      ctx.lineTo(W, this.y);
+      ctx.moveTo(this.prevX, this.prevY);
+      ctx.lineTo(this.x, this.y);
       ctx.stroke();
       ctx.restore();
     }
-    bbox(){ return {x:this.x, y:this.y-2, w:W-this.x, h:4}; }
+    bbox(){
+      const minX = Math.min(this.prevX, this.x);
+      const minY = Math.min(this.prevY, this.y);
+      return {x:minX, y:minY, w:Math.abs(this.x - this.prevX), h:Math.abs(this.y - this.prevY)};
+    }
   }
 
   // Collisions
