@@ -10,11 +10,9 @@
   const livesEl = document.getElementById('lives');
 
   let W = 960, H = 540;
-  const stars = [];
   function resize() {
     canvas.width = W = window.innerWidth;
     canvas.height = H = window.innerHeight;
-    generateStars();
   }
   resize();
   window.addEventListener('resize', resize);
@@ -22,12 +20,6 @@
   // -------- Utils
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
-
-  function generateStars(){
-    stars.length = 0;
-    const count = Math.floor(W * H / 8000);
-    for (let i=0;i<count;i++) stars.push({x: rand(0,W), y: rand(0,H), r: rand(0.5,1.5), o: rand(0.2,1)});
-  }
 
   // -------- Audio (simple WebAudio beeps)
   const Audio = (() => {
@@ -70,7 +62,6 @@
 
   let wingBoosts = 0; // how many wing windows granted so far (max 3 at 60/120/180s)
   let wingActiveUntil = 0; // timestamp until wings active
-  let missileModeToggle = false; // alternancia de misiles guiados tras 3 min
 
   // Entities arrays
   const missiles = [];
@@ -84,7 +75,7 @@
   let nextReptile = 2;
   let nextAngel = 6;
   let nextEye = 10;
-  let nextTriangle = 0; // se activará tras 36s
+  let nextTriangle = 35; // after 30s
 
   // Input
   const keys = new Set();
@@ -118,14 +109,14 @@
       if (this.onGround || this.jumpsLeft > 0 || (inWing && this.jumpsLeft === 0 && this.extraWingJumps > 0)) {
         // Permite salto en tierra, saltos aéreos restantes o un salto extra por alas
         if (this.onGround) {
-          this.vy = -660;
+          this.vy = -620;
           this.onGround = false;
           this.jumpsLeft = this.baseJumps - 1; // consumimos uno al saltar
         } else if (this.jumpsLeft > 0) {
-          this.vy = -600; // doble salto
+          this.vy = -560; // doble salto
           this.jumpsLeft--;
         } else if (inWing && this.extraWingJumps > 0) {
-          this.vy = -580; // salto extra por alas
+          this.vy = -540; // salto extra por alas
           this.extraWingJumps--;
         }
         Audio.jump();
@@ -181,10 +172,24 @@
       ctx.rotate(-armSwing*Math.PI/180);
       ctx.fillRect(0,0, w*0.12, h*0.28);
       ctx.restore();
-      // Cabeza silueteada
-      ctx.fillStyle = '#0d0d0d';
+      // Cabeza
+      ctx.fillStyle = '#161616';
       ctx.beginPath();
-      ctx.ellipse(x + w*0.3, y - h*0.84, w*0.22, h*0.18, 0, 0, Math.PI*2);
+      ctx.ellipse(x + w*0.3, y - h*0.85, w*0.22, h*0.16, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Cabello ligeramente largo
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(x + w*0.3, y - h*0.88, w*0.23, h*0.18, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Barba negra
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.moveTo(x + w*0.18, y - h*0.76);
+      ctx.quadraticCurveTo(x + w*0.3, y - h*0.65, x + w*0.42, y - h*0.76);
+      ctx.lineTo(x + w*0.38, y - h*0.78);
+      ctx.quadraticCurveTo(x + w*0.3, y - h*0.70, x + w*0.22, y - h*0.78);
+      ctx.closePath();
       ctx.fill();
 
       // Alas temporales (cuando activas)
@@ -209,18 +214,15 @@
       // Escudo (Estrella de David) cuando activo
       if (shieldActive) {
         const rad = 68;
-        drawStarOfDavid(ctx, this.x()+w*0.3, y - h*0.45, rad, '#d4af37');
+        drawStarOfDavid(ctx, this.x()+w*0.3, y - h*0.45, rad, '#6bd1ff');
       }
     }
   };
 
-  function drawStarOfDavid(ctx, cx, cy, r, color='#d4af37') {
+  function drawStarOfDavid(ctx, cx, cy, r, color='#6bd1ff') {
     ctx.save();
     ctx.lineWidth = 2;
     ctx.strokeStyle = color;
-    ctx.fillStyle = 'rgba(212,175,55,0.15)';
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 6;
     // Triángulo hacia arriba
     ctx.beginPath();
     for (let i=0;i<3;i++){
@@ -229,9 +231,7 @@
       const y = cy + r*Math.sin(a);
       if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    ctx.closePath(); ctx.stroke();
     // Triángulo hacia abajo
     ctx.beginPath();
     for (let i=0;i<3;i++){
@@ -240,17 +240,15 @@
       const y = cy + r*Math.sin(a);
       if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    ctx.closePath(); ctx.stroke();
     ctx.restore();
   }
 
   // Hazards / Enemies
   class Reptile {
     constructor() {
-      this.w = rand(36, 46);
-      this.h = rand(60, 80);
+      this.w = rand(28, 36);
+      this.h = rand(28, 40);
       this.x = W + this.w + 10;
       this.y = groundY();
       this.speed = speed * rand(0.75, 1.05);
@@ -301,14 +299,9 @@
       if (this.x < -80) this.alive = false;
     }
     fire() {
-      // Dispara misil (lineal u homing según tiempo)
+      // Dispara misil dirigido al muslo derecho del jugador
       const target = player.thigh();
-      let homing = false;
-      if (time >= 180) {
-        missileModeToggle = !missileModeToggle;
-        homing = missileModeToggle;
-      }
-      missiles.push(new Missile(this.x, this.y, target.x, target.y, homing));
+      missiles.push(new Missile(this.x, this.y, target.x, target.y));
       this.fired = true;
     }
     render(ctx) {
@@ -385,27 +378,22 @@
   }
 
   class Missile {
-    constructor(x, y, tx, ty, homing=false) {
+    constructor(x, y, tx, ty) {
       this.x = x; this.y = y;
+      this.vx = -220; this.vy = 0;
       this.speed = 260;
-      const dx = tx - x, dy = ty - y;
-      const d = Math.hypot(dx, dy) || 1;
-      this.vx = (dx/d) * this.speed;
-      this.vy = (dy/d) * this.speed;
-      this.homing = homing;
       this.alive = true;
+      this.targetBias = 0.9;
     }
     update(dt) {
-      if (this.homing) {
-        // guía hacia el muslo actual del jugador
-        const t = player.thigh();
-        const dx = t.x - this.x, dy = t.y - this.y;
-        const d = Math.hypot(dx, dy) || 1;
-        const ux = dx/d, uy = dy/d;
-        // homing suave
-        this.vx = this.vx*0.9 + this.speed*ux*0.1;
-        this.vy = this.vy*0.9 + this.speed*uy*0.1;
-      }
+      // guía hacia el muslo actual del jugador
+      const t = player.thigh();
+      const dx = t.x - this.x, dy = t.y - this.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const ux = dx/d, uy = dy/d;
+      // homing suave
+      this.vx = this.vx*0.9 + this.speed*ux*0.1;
+      this.vy = this.vy*0.9 + this.speed*uy*0.1;
       this.x += this.vx*dt;
       this.y += this.vy*dt;
       if (this.x < -40 || this.x>W+40 || this.y< -40 || this.y>H+40) this.alive = false;
@@ -532,8 +520,7 @@
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
     time = 0; startTs = performance.now()/1000; lastTs = startTs;
     speed = 420;
-    nextReptile = 2; nextAngel = 6; nextEye = 10; nextTriangle = 0;
-    missileModeToggle = false;
+    nextReptile = 2; nextAngel = 6; nextEye = 10; nextTriangle = 35;
     shieldUntil = 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
@@ -620,7 +607,7 @@
         nextEye = rand(5.5, 9.5) / (1 + time*0.002);
       }
     }
-    if (time >= 36) {
+    if (time >= 30) {
       nextTriangle -= dt;
       if (nextTriangle <= 0) {
         triangles.push(new TriangleEye());
@@ -669,20 +656,12 @@
   function render(){
     // Fondo
     ctx.clearRect(0,0,W,H);
-    // Cielo estrellado
+    // Cielo
     const grad = ctx.createLinearGradient(0,0,0,H);
-    grad.addColorStop(0,'#03040a');
-    grad.addColorStop(1,'#000');
+    grad.addColorStop(0,'#0b1020');
+    grad.addColorStop(1,'#101a3a');
     ctx.fillStyle = grad;
     ctx.fillRect(0,0,W,H);
-    ctx.fillStyle = '#fff';
-    stars.forEach(s=>{
-      ctx.globalAlpha = s.o;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
-      ctx.fill();
-    });
-    ctx.globalAlpha = 1;
 
     // Suelo
     ctx.fillStyle = '#0b1536';
