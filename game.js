@@ -141,8 +141,8 @@
         Audio.jump();
       }
     },
-    thigh(){ // coordenada objetivo para misiles (muslo derecho)
-      return { x: this.x()+this.width()*0.35, y: this.y - this.height()*0.3 };
+    thigh(){ // coordenada objetivo para misiles (cintura)
+      return { x: this.x()+this.width()*0.5, y: this.y - this.height()*0.3 };
     },
     update(dt){
       this.vy += 1600 * dt;
@@ -162,56 +162,53 @@
       shieldActive = time < shieldUntil;
     },
     render(ctx){
-      // Sombra
+      // Sombra del jugador
       ctx.fillStyle = 'rgba(0,0,0,0.25)';
       ctx.beginPath();
       ctx.ellipse(this.x()+this.width()/2, groundY()+8, 28, 8, 0, 0, Math.PI*2);
       ctx.fill();
 
-      // Silueta del cuerpo
-      ctx.fillStyle = '#0d0d0d';
       const x = this.x(), y = this.y, w = this.width(), h = this.height();
-      // Torso & piernas
+      const armSwing = Math.sin(time*10)*10;
+      const legSwing = Math.sin(time*10)*10;
+
+      ctx.fillStyle = '#111';
+
+      // Torso
       ctx.beginPath();
-      ctx.roundRect(x, y - h, w*0.6, h*0.65, 8);
+      ctx.roundRect(x + w*0.3, y - h*0.75, w*0.4, h*0.45, 10);
       ctx.fill();
-      // Pierna derecha
-      ctx.fillRect(x + w*0.35, y - h*0.35, w*0.15, h*0.35);
-      // Pierna izquierda
-      ctx.fillRect(x + w*0.1, y - h*0.35, w*0.15, h*0.35);
-      // Brazos en movimiento simple
-      const armSwing = Math.sin(time*10)*6;
+
+      // Cabeza
+      ctx.beginPath();
+      ctx.arc(x + w*0.5, y - h*0.9, w*0.18, 0, Math.PI*2);
+      ctx.fill();
+
+      // Brazos
       ctx.save();
-      ctx.translate(x + w*0.05, y - h*0.62);
+      ctx.translate(x + w*0.3, y - h*0.65);
       ctx.rotate(armSwing*Math.PI/180);
-      ctx.fillRect(0,0, w*0.12, h*0.28);
+      ctx.fillRect(-w*0.1, 0, w*0.1, h*0.35);
       ctx.restore();
+
       ctx.save();
-      ctx.translate(x + w*0.43, y - h*0.62);
+      ctx.translate(x + w*0.7, y - h*0.65);
       ctx.rotate(-armSwing*Math.PI/180);
-      ctx.fillRect(0,0, w*0.12, h*0.28);
+      ctx.fillRect(0, 0, w*0.1, h*0.35);
       ctx.restore();
-      // Cabeza con tono de piel
-      ctx.fillStyle = '#d8b08c';
-      ctx.beginPath();
-      ctx.ellipse(x + w*0.3, y - h*0.85, w*0.22, h*0.16, 0, 0, Math.PI*2);
-      ctx.fill();
-      // Cabello largo
-      ctx.fillStyle = '#3b2f2f';
-      ctx.beginPath();
-      ctx.ellipse(x + w*0.3, y - h*0.88, w*0.24, h*0.2, 0, 0, Math.PI*2);
-      ctx.fill();
-      // mechones laterales
-      ctx.fillRect(x + w*0.07, y - h*0.88, w*0.1, h*0.25);
-      ctx.fillRect(x + w*0.33, y - h*0.88, w*0.1, h*0.25);
-      // Barba
-      ctx.beginPath();
-      ctx.moveTo(x + w*0.18, y - h*0.76);
-      ctx.quadraticCurveTo(x + w*0.3, y - h*0.65, x + w*0.42, y - h*0.76);
-      ctx.lineTo(x + w*0.38, y - h*0.78);
-      ctx.quadraticCurveTo(x + w*0.3, y - h*0.70, x + w*0.22, y - h*0.78);
-      ctx.closePath();
-      ctx.fill();
+
+      // Piernas
+      ctx.save();
+      ctx.translate(x + w*0.42, y);
+      ctx.rotate(-legSwing*Math.PI/180);
+      ctx.fillRect(-w*0.08, -h*0.35, w*0.16, h*0.35);
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(x + w*0.58, y);
+      ctx.rotate(legSwing*Math.PI/180);
+      ctx.fillRect(-w*0.08, -h*0.35, w*0.16, h*0.35);
+      ctx.restore();
 
       // Alas temporales (cuando activas)
       if (time < wingActiveUntil) {
@@ -219,15 +216,15 @@
         ctx.globalAlpha = 0.7;
         // ala izquierda
         ctx.beginPath();
-        ctx.moveTo(x + w*0.1, y - h*0.6);
-        ctx.quadraticCurveTo(x - w*0.25, y - h*0.85, x + w*0.1, y - h*0.9);
-        ctx.quadraticCurveTo(x - w*0.05, y - h*0.7, x + w*0.1, y - h*0.6);
+        ctx.moveTo(x + w*0.35, y - h*0.55);
+        ctx.quadraticCurveTo(x - w*0.2, y - h*0.85, x + w*0.35, y - h*0.9);
+        ctx.quadraticCurveTo(x, y - h*0.7, x + w*0.35, y - h*0.55);
         ctx.fill();
         // ala derecha
         ctx.beginPath();
-        ctx.moveTo(x + w*0.5, y - h*0.6);
-        ctx.quadraticCurveTo(x + w*0.85, y - h*0.85, x + w*0.5, y - h*0.9);
-        ctx.quadraticCurveTo(x + w*0.65, y - h*0.7, x + w*0.5, y - h*0.6);
+        ctx.moveTo(x + w*0.65, y - h*0.55);
+        ctx.quadraticCurveTo(x + w*1.2, y - h*0.85, x + w*0.65, y - h*0.9);
+        ctx.quadraticCurveTo(x + w, y - h*0.7, x + w*0.65, y - h*0.55);
         ctx.fill();
         ctx.globalAlpha = 1;
       }
@@ -235,7 +232,7 @@
       // Escudo (Estrella de David) cuando activo
       if (shieldActive) {
         const rad = 68;
-        drawStarOfDavid(ctx, this.x()+w*0.3, y - h*0.45, rad, '#d4af37');
+        drawStarOfDavid(ctx, x + w*0.5, y - h*0.45, rad, '#d4af37');
       }
     }
   };
