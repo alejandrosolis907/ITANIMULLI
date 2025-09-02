@@ -374,18 +374,34 @@
       ctx.beginPath();
       ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
       ctx.fill();
-      // alas
+      // alas más definidas
       ctx.globalAlpha = 0.9;
-      ctx.beginPath();
-      ctx.moveTo(-this.w*0.3, -this.h*0.45);
-      ctx.quadraticCurveTo(-this.w*1.0, -this.h*0.9, -this.w*0.3, -this.h*0.95);
-      ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.6, -this.w*0.3, -this.h*0.45);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(this.w*0.3, -this.h*0.45);
-      ctx.quadraticCurveTo(this.w*1.0, -this.h*0.9, this.w*0.3, -this.h*0.95);
-      ctx.quadraticCurveTo(this.w*0.6, -this.h*0.6, this.w*0.3, -this.h*0.45);
-      ctx.fill();
+      ctx.fillStyle = '#f8faff';
+      ctx.strokeStyle = '#d0d8ff';
+      const drawWing = (dir) => {
+        ctx.save();
+        ctx.scale(dir, 1);
+        ctx.beginPath();
+        ctx.moveTo(this.w * 0.3, -this.h * 0.45);
+        ctx.quadraticCurveTo(this.w * 0.9, -this.h * 0.9, this.w * 1.1, -this.h * 0.2);
+        ctx.quadraticCurveTo(this.w * 0.9, 0, this.w * 0.3, -this.h * 0.1);
+        ctx.closePath();
+        ctx.fill();
+        // plumas
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const fx = this.w * (0.6 + i * 0.15);
+          const fy = -this.h * (0.7 - i * 0.15);
+          const tx = this.w * (0.4 + i * 0.1);
+          const ty = -this.h * (0.15 - i * 0.03);
+          ctx.moveTo(this.w * 0.3, -this.h * 0.45);
+          ctx.quadraticCurveTo(fx, fy, tx, ty);
+        }
+        ctx.stroke();
+        ctx.restore();
+      };
+      drawWing(1);
+      drawWing(-1);
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -408,18 +424,32 @@
       // ojo con alas
       ctx.save();
       ctx.translate(this.x, this.y);
-      // alas
+      // alas más realistas
       ctx.fillStyle = '#f0f4ff';
-      ctx.beginPath();
-      ctx.moveTo(-50, 0);
-      ctx.quadraticCurveTo(-85, -25, -55, -35);
-      ctx.quadraticCurveTo(-75, -10, -50, 0);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(50, 0);
-      ctx.quadraticCurveTo(85, -25, 55, -35);
-      ctx.quadraticCurveTo(75, -10, 50, 0);
-      ctx.fill();
+      ctx.strokeStyle = '#d0d8ff';
+      const drawWing = (dir) => {
+        ctx.save();
+        ctx.scale(dir, 1);
+        ctx.beginPath();
+        ctx.moveTo(30, -10);
+        ctx.quadraticCurveTo(80, -40, 78, 20);
+        ctx.quadraticCurveTo(58, 10, 30, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const fx = 60 + i * 12;
+          const fy = -25 - i * 5;
+          const tx = 40 + i * 8;
+          const ty = 5 + i * 6;
+          ctx.moveTo(30, -10);
+          ctx.quadraticCurveTo(fx, fy, tx, ty);
+        }
+        ctx.stroke();
+        ctx.restore();
+      };
+      drawWing(-1);
+      drawWing(1);
       // ojo
       ctx.fillStyle = '#cde1ff';
       ctx.beginPath();
