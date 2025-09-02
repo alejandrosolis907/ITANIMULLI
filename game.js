@@ -568,18 +568,21 @@
   class TriangleEye {
     constructor() {
       this.x = W + 50;
-      this.y = groundY() - 40 - rand(0, 40);
+      // Flota en el cielo en vez de desplazarse junto al jugador
+      this.y = rand(H * 0.15, H * 0.35);
       this.speed = speed * rand(0.5, 0.85);
       this.alive = true;
       this.aimTime = 0.4 + rand(0,0.25);
       this.fired = false;
-      this.laserY = this.y - 30; // se ajustará a altura de ojo
+      this.laserY = player.y - player.height()*0.4; // posición objetivo del láser
     }
     update(dt) {
       // si está cerca del jugador, frena para disparar
       if (!this.fired && this.x < W*0.55) {
         this.speed = Math.max(this.speed*0.92, 30);
         this.aimTime -= dt;
+        // apuntar continuamente a la altura del jugador
+        this.laserY = player.y - player.height()*0.4;
         if (this.aimTime <= 0) this.fire();
       } else {
         this.x -= this.speed * dt;
@@ -601,13 +604,16 @@
       ctx.fillStyle = '#f5e6a6';
       ctx.beginPath();
       ctx.moveTo(0, -32); ctx.lineTo(-28, 24); ctx.lineTo(28, 24); ctx.closePath(); ctx.fill();
-      // ojo
-      ctx.fillStyle = '#222';
+      // ojo con pupila humana
+      ctx.fillStyle = '#fff';
       ctx.beginPath();
       ctx.ellipse(0, -6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#b20a0a';
+      ctx.fillStyle = '#6fa8dc'; // iris
       ctx.beginPath();
-      ctx.arc(0, -6, 3.5, 0, Math.PI*2); ctx.fill();
+      ctx.arc(0, -6, 4, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(0, -6, 2, 0, Math.PI*2); ctx.fill();
       ctx.restore();
       // línea de apuntado (si aún no dispara)
       if (!this.fired) {
@@ -617,7 +623,7 @@
         ctx.setLineDash([6,6]);
         ctx.beginPath();
         ctx.moveTo(this.x-8, this.y-30);
-        ctx.lineTo(W, this.y-30);
+        ctx.lineTo(W, this.laserY);
         ctx.stroke();
         ctx.restore();
       }
