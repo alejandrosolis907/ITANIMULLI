@@ -4,7 +4,8 @@
   "description": "Pequeño juego tipo runner hecho en HTML5 Canvas.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "echo 'No hay tests definidos' && exit 0"
   },
   "keywords": [],
   "author": "",
