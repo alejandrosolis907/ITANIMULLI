@@ -208,15 +208,15 @@
         ctx.globalAlpha = 1;
       }
 
-      // Escudo (Estrella de David) cuando activo
+      // Escudo (hexagrama) cuando activo
       if (shieldActive) {
         const rad = 68;
-        drawStarOfDavid(ctx, x + w*0.5, y - h*0.45, rad);
+        drawHexagram(ctx, x + w*0.5, y - h*0.45, rad);
       }
     }
   };
 
-  function drawStarOfDavid(ctx, cx, cy, r, color = '#ffd700') {
+  function drawHexagram(ctx, cx, cy, r, color = '#ffd700') {
     ctx.save();
     ctx.lineWidth = 6;
     ctx.lineJoin = 'round';
@@ -225,25 +225,13 @@
     ctx.fillStyle = color;
     ctx.shadowColor = color;
     ctx.shadowBlur = 8;
-    // Triángulo hacia arriba
+
     ctx.beginPath();
-    for (let i = 0; i < 3; i++) {
-      const a = (-90 + i * 120) * Math.PI / 180;
-      const x = cx + r * Math.cos(a);
-      const y = cy + r * Math.sin(a);
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.globalAlpha = 0.3;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.stroke();
-    // Triángulo hacia abajo
-    ctx.beginPath();
-    for (let i = 0; i < 3; i++) {
-      const a = (30 + i * 120) * Math.PI / 180;
-      const x = cx + r * Math.cos(a);
-      const y = cy + r * Math.sin(a);
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI / 6) * i - Math.PI / 2;
+      const radius = i % 2 === 0 ? r : r * 0.5;
+      const x = cx + radius * Math.cos(angle);
+      const y = cy + radius * Math.sin(angle);
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
