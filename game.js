@@ -289,7 +289,7 @@
 
   class Cosmic {
     constructor(type = null, giant = false){
-      const baseTypes = ['galaxy','planet','nebula','comet','blackhole'];
+      const baseTypes = ['galaxy','planet','nebula','comet'];
       this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
       this.giant = giant;
       this.x = giant ? W/2 : rand(0, W);
@@ -446,15 +446,26 @@
       ctx.translate(this.x, this.y);
       if (chaos) {
         ctx.fillStyle = '#ff3030';
+        // cuerpo
         ctx.beginPath();
         ctx.roundRect(-this.w*0.3, -this.h*0.6, this.w*0.6, this.h*0.6, 8);
         ctx.fill();
+        // cabeza
         ctx.beginPath();
         ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
         ctx.fill();
+        // cuernos grandes
         ctx.beginPath();
-        ctx.moveTo(-4, -this.h*0.78); ctx.lineTo(-8, -this.h*0.95); ctx.lineTo(-1, -this.h*0.82); ctx.closePath();
-        ctx.moveTo(4, -this.h*0.78); ctx.lineTo(8, -this.h*0.95); ctx.lineTo(1, -this.h*0.82); ctx.closePath();
+        ctx.moveTo(-6, -this.h*0.78); ctx.lineTo(-14, -this.h*1.05); ctx.lineTo(-2, -this.h*0.82); ctx.closePath();
+        ctx.moveTo(6, -this.h*0.78); ctx.lineTo(14, -this.h*1.05); ctx.lineTo(2, -this.h*0.82); ctx.closePath();
+        ctx.fill();
+        // cola de diablo
+        ctx.beginPath();
+        ctx.moveTo(this.w*0.3, -this.h*0.2);
+        ctx.quadraticCurveTo(this.w*0.6, 0, this.w*0.4, this.h*0.25);
+        ctx.lineTo(this.w*0.52, this.h*0.22);
+        ctx.lineTo(this.w*0.38, this.h*0.35);
+        ctx.closePath();
         ctx.fill();
       } else {
         // silueta humanoide con alas
@@ -853,8 +864,12 @@
     }
     nextCosmic -= dt;
     if (nextCosmic <= 0) {
-      cosmics.push(new Cosmic());
-      if (time >= 180) clearEnemies();
+      if (time >= 180 && Math.random() < 0.25) {
+        cosmics.push(new Cosmic('blackhole', true));
+        clearEnemies();
+      } else {
+        cosmics.push(new Cosmic());
+      }
       nextCosmic = rand(12,20);
     }
 
