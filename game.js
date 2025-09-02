@@ -8,14 +8,19 @@
   const startBtn = document.getElementById('startBtn');
   const bestEl = document.getElementById('best');
   const livesEl = document.getElementById('lives');
+  const jumpBtn = document.getElementById('jumpBtn');
 
-  let W = 960, H = 540;
-  function resize() {
-    canvas.width = W = window.innerWidth;
-    canvas.height = H = window.innerHeight;
+  let W = 0, H = 0;
+  function resizeCanvas() {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = canvas.width / dpr;
+    H = canvas.height / dpr;
   }
-  resize();
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
 
   // Estrellas de fondo
   const stars = Array.from({ length: 100 }, () => ({
@@ -59,7 +64,8 @@
     return {
       jump, hit, burstLaser, shield,
       toggle(){ muted = !muted; },
-      isMuted(){ return muted; }
+      isMuted(){ return muted; },
+      unlock(){ if (ctx.state === 'suspended') ctx.resume(); }
     };
   })();
 
@@ -98,6 +104,8 @@
 
   // Input
   const keys = new Set();
+  function jump(){ if (state === STATE.PLAY) player.tryJump(); }
+
   window.addEventListener('keydown', (e) => {
     if (['ArrowUp','Space','KeyM','KeyR'].includes(e.code)) e.preventDefault();
     if (e.code === 'KeyM') Audio.toggle();
@@ -105,10 +113,29 @@
     if (state === STATE.MENU && (e.code === 'Space' || e.code === 'ArrowUp')) { startGame(); return; }
     if (state !== STATE.PLAY) return;
     keys.add(e.code);
-    if ((e.code === 'Space' || e.code === 'ArrowUp')) player.tryJump();
+    if (e.code === 'Space' || e.code === 'ArrowUp') jump();
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
+  window.addEventListener('mousedown', (e) => { if (e.button === 0) jump(); });
+  window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') jump();
+  }, { passive: false });
+  if (jumpBtn) {
+    jumpBtn.addEventListener('pointerup', (e) => { e.preventDefault(); jump(); });
+  }
+  window.addEventListener('gesturestart', (e) => e.preventDefault());
   startBtn.addEventListener('click', startGame);
+
+  let audioUnlocked = false;
+  function unlockAudio(){
+    if (!audioUnlocked) {
+      try { Audio.unlock(); } catch {}
+      audioUnlocked = true;
+    }
+  }
+  ['pointerdown','keydown','mousedown','touchstart'].forEach(ev =>
+    window.addEventListener(ev, unlockAudio, { once: true })
+  );
 
   // Player
   const player = {
