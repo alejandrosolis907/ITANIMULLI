@@ -86,6 +86,7 @@
   const lasers = [];
   const angels = [];
   const eyes = [];
+  const cosmics = [];
   let missileHomingToggle = false;
 
   // Spawners control
@@ -93,6 +94,7 @@
   let nextAngel = 6;
   let nextEye = 10;
   let nextTriangle = rand(6.5, 9.0); // interval once triangles start
+  let nextCosmic = rand(12, 20); // eventos cósmicos a partir de 180s
 
   // Input
   const keys = new Set();
@@ -261,42 +263,95 @@
     ctx.restore();
   }
 
+  class Cosmic {
+    constructor(){
+      const types = ['galaxy','nebula','blackhole'];
+      this.type = types[Math.floor(Math.random()*types.length)];
+      this.x = rand(0, W);
+      this.y = rand(0, H*0.4);
+      this.ttl = 2.5;
+    }
+    update(dt){
+      this.ttl -= dt;
+    }
+    render(ctx){
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      switch(this.type){
+        case 'galaxy':
+          ctx.strokeStyle = 'rgba(200,200,255,0.7)';
+          for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(0,0,i*4,0,Math.PI*2); ctx.stroke(); }
+          break;
+        case 'nebula':
+          const g = ctx.createRadialGradient(0,0,0,0,0,40);
+          g.addColorStop(0,'rgba(255,200,255,0.6)');
+          g.addColorStop(1,'rgba(100,0,150,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(0,0,40,0,Math.PI*2); ctx.fill();
+          break;
+        case 'blackhole':
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.arc(0,0,25,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = '#444';
+          ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0,0,32,0,Math.PI*2); ctx.stroke();
+          break;
+      }
+      ctx.restore();
+    }
+    get alive(){ return this.ttl > 0; }
+  }
+
+  function clearEnemies(){
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+  }
+
   // Hazards / Enemies
   class Reptile {
     constructor() {
-      this.w = rand(28, 36);
-      this.h = rand(48, 60);
+      this.w = rand(40, 48);
+      this.h = rand(90, 110);
       this.x = W + this.w + 10;
       this.y = groundY();
-      this.speed = speed * rand(0.75, 1.05);
+      this.speed = speed * rand(0.75, 1.0);
       this.alive = true;
     }
     update(dt) {
       this.x -= this.speed * dt;
-      if (this.x < -60) this.alive = false;
+      if (this.x < -80) this.alive = false;
     }
     render(ctx) {
-      // pequeño reptiliano verde
+      // reptiliano alto humanoide
       ctx.fillStyle = '#2bbf66';
       ctx.save();
       ctx.translate(this.x, this.y);
+      // cuerpo
       ctx.beginPath();
-      ctx.roundRect(-this.w/2, -this.h, this.w, this.h*0.65, 6);
+      ctx.roundRect(-this.w*0.25, -this.h, this.w*0.5, this.h*0.6, 8);
       ctx.fill();
-      ctx.fillRect(-this.w*0.15, -this.h*0.35, this.w*0.3, this.h*0.35);
-      ctx.fillRect(this.w*0.1, -this.h*0.35, this.w*0.3, this.h*0.35);
+      // piernas
+      ctx.fillRect(-this.w*0.2, -this.h*0.4, this.w*0.15, this.h*0.4);
+      ctx.fillRect(this.w*0.05, -this.h*0.4, this.w*0.15, this.h*0.4);
+      // brazos
+      ctx.fillRect(-this.w*0.35, -this.h*0.75, this.w*0.1, this.h*0.35);
+      ctx.fillRect(this.w*0.25, -this.h*0.75, this.w*0.1, this.h*0.35);
       // cabeza
       ctx.beginPath();
-      ctx.ellipse(-this.w*0.05, -this.h*0.85, this.w*0.35, this.h*0.22, 0, 0, Math.PI*2);
+      ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
       ctx.fill();
       // ojo
       ctx.fillStyle = '#113f22';
       ctx.beginPath();
-      ctx.arc(this.w*0.05, -this.h*0.86, 3, 0, Math.PI*2);
+      ctx.ellipse(this.w*0.08, -this.h*0.92, this.w*0.05, this.h*0.03, 0, 0, Math.PI*2);
+      ctx.fill();
+      // cola
+      ctx.beginPath();
+      ctx.moveTo(-this.w*0.25, -this.h*0.2);
+      ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.3, -this.w*0.7, -this.h*0.05);
+      ctx.quadraticCurveTo(-this.w*0.4, -this.h*0.15, -this.w*0.25, -this.h*0.1);
       ctx.fill();
       ctx.restore();
     }
-    bbox(){ return {x:this.x - this.w/2, y:this.y - this.h, w:this.w, h:this.h}; }
+    bbox(){ return {x:this.x - this.w*0.25, y:this.y - this.h, w:this.w*0.5, h:this.h}; }
   }
 
   class Angel {
@@ -316,9 +371,15 @@
       if (this.x < -80) this.alive = false;
     }
     fire() {
-      // Dispara misil dirigido al muslo derecho del jugador
+      // Dispara misil apuntado al jugador
+      const t = player.thigh();
+      const dx = t.x - this.x, dy = t.y - this.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const spd = 260;
+      const vx = (dx / d) * spd;
+      const vy = (dy / d) * spd;
       const homing = time >= 180 ? (missileHomingToggle = !missileHomingToggle) : false;
-      missiles.push(new Missile(this.x, this.y, homing));
+      missiles.push(new Missile(this.x, this.y, vx, vy, homing));
       this.fired = true;
     }
     render(ctx) {
@@ -395,10 +456,10 @@
   }
 
   class Missile {
-    constructor(x, y, homing = true) {
+    constructor(x, y, vx, vy, homing = true) {
       this.x = x; this.y = y;
-      this.vx = -220; this.vy = 0;
-      this.speed = 260;
+      this.vx = vx; this.vy = vy;
+      this.speed = Math.hypot(vx, vy) || 260;
       this.alive = true;
       this.homing = homing;
     }
@@ -586,9 +647,8 @@
     time = ts - startTs;
     score = time;
 
-    // dificultad: aumenta velocidad lentamente; más fuerte a partir de 60s
-    const diffBoost = (time >= 60 ? 1.2 : 1.0);
-    speed = 420 * (1 + time*0.004) * diffBoost;
+    // dificultad: se mantiene estable hasta los 180s y luego aumenta
+    speed = 420 * (1 + Math.max(0, time - 180) * 0.004);
 
     // Wing boosts a los 60s, 120s, 180s (15s cada uno)
     const checkpoints = [60, 120, 180];
@@ -613,27 +673,35 @@
     nextReptile -= dt;
     if (nextReptile <= 0) {
       reptiles.push(new Reptile());
-      nextReptile = rand(1.6, 2.6) / (1 + time*0.003);
+      nextReptile = rand(1.6, 2.6) / (1 + Math.max(0, time-180)*0.003);
     }
     if (time >= 12) {
       nextAngel -= dt;
       if (nextAngel <= 0) {
         angels.push(new Angel());
-        nextAngel = rand(4.5, 7.0) / (1 + time*0.002);
+        nextAngel = rand(4.5, 7.0) / (1 + Math.max(0, time-180)*0.002);
       }
     }
     if (time >= 18) {
       nextEye -= dt;
       if (nextEye <= 0) {
         eyes.push(new EyeAngel());
-        nextEye = rand(5.5, 9.5) / (1 + time*0.002);
+        nextEye = rand(5.5, 9.5) / (1 + Math.max(0, time-180)*0.002);
       }
     }
     if (time >= 36) {
       nextTriangle -= dt;
       if (nextTriangle <= 0) {
         triangles.push(new TriangleEye());
-        nextTriangle = rand(6.5, 9.0) / (1 + time*0.0025);
+        nextTriangle = rand(6.5, 9.0) / (1 + Math.max(0, time-180)*0.0025);
+      }
+    }
+    if (time >= 180) {
+      nextCosmic -= dt;
+      if (nextCosmic <= 0) {
+        cosmics.push(new Cosmic());
+        clearEnemies();
+        nextCosmic = rand(12,20);
       }
     }
 
@@ -645,6 +713,7 @@
     triangles.forEach(o=>o.update(dt));
     missiles.forEach(o=>o.update(dt));
     lasers.forEach(o=>o.update(dt));
+    cosmics.forEach(o=>o.update(dt));
 
     // Collisions
     const pb = playerBBox();
@@ -665,7 +734,7 @@
 
     // Cleanup
     function aliveFilter(o){ return o.alive !== false; }
-    [reptiles, angels, eyes, triangles, missiles, lasers].forEach(list => {
+    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
 
@@ -685,6 +754,7 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0,0,W,H);
     drawStars();
+    cosmics.forEach(o=>o.render(ctx));
 
     // Suelo
     ctx.fillStyle = '#0b1536';
