@@ -9,6 +9,7 @@
   const bestEl = document.getElementById('best');
   const livesEl = document.getElementById('lives');
   const jumpBtn = document.getElementById('jumpBtn');
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
   let W = 0, H = 0;
   function resizeCanvas() {
@@ -152,17 +153,18 @@
     tryJump(){
       const now = time;
       const inWing = now < wingActiveUntil;
+      const boost = isTouchDevice ? 1.15 : 1; // salto ligeramente más alto en pantallas táctiles
       if (this.onGround || this.jumpsLeft > 0 || (inWing && this.jumpsLeft === 0 && this.extraWingJumps > 0)) {
         // Permite salto en tierra, saltos aéreos restantes o un salto extra por alas
         if (this.onGround) {
-          this.vy = -620;
+          this.vy = -620 * boost;
           this.onGround = false;
           this.jumpsLeft = this.baseJumps - 1; // consumimos uno al saltar
         } else if (this.jumpsLeft > 0) {
-          this.vy = -560; // doble salto
+          this.vy = -560 * boost; // doble salto
           this.jumpsLeft--;
         } else if (inWing && this.extraWingJumps > 0) {
-          this.vy = -540; // salto extra por alas
+          this.vy = -540 * boost; // salto extra por alas
           this.extraWingJumps--;
         }
         Audio.jump();
