@@ -191,18 +191,20 @@
       ctx.rotate(-armSwing*Math.PI/180);
       ctx.fillRect(0,0, w*0.12, h*0.28);
       ctx.restore();
-      // Cabeza
-      ctx.fillStyle = '#161616';
+      // Cabeza con tono de piel
+      ctx.fillStyle = '#d8b08c';
       ctx.beginPath();
       ctx.ellipse(x + w*0.3, y - h*0.85, w*0.22, h*0.16, 0, 0, Math.PI*2);
       ctx.fill();
-      // Cabello ligeramente largo
-      ctx.fillStyle = '#000';
+      // Cabello largo
+      ctx.fillStyle = '#3b2f2f';
       ctx.beginPath();
-      ctx.ellipse(x + w*0.3, y - h*0.88, w*0.23, h*0.18, 0, 0, Math.PI*2);
+      ctx.ellipse(x + w*0.3, y - h*0.88, w*0.24, h*0.2, 0, 0, Math.PI*2);
       ctx.fill();
-      // Barba negra
-      ctx.fillStyle = '#000';
+      // mechones laterales
+      ctx.fillRect(x + w*0.07, y - h*0.88, w*0.1, h*0.25);
+      ctx.fillRect(x + w*0.33, y - h*0.88, w*0.1, h*0.25);
+      // Barba
       ctx.beginPath();
       ctx.moveTo(x + w*0.18, y - h*0.76);
       ctx.quadraticCurveTo(x + w*0.3, y - h*0.65, x + w*0.42, y - h*0.76);
