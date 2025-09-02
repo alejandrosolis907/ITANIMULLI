@@ -273,14 +273,26 @@
 
   class Cosmic {
     constructor(){
-      const types = ['galaxy','nebula','blackhole'];
-      this.type = types[Math.floor(Math.random()*types.length)];
+      const baseTypes = ['galaxy','planet','nebula','comet','blackhole'];
+      this.type = Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)];
       this.x = rand(0, W);
       this.y = rand(0, H*0.4);
       this.ttl = 2.5;
+      if (this.type === 'comet' || this.type === 'ufo') {
+        this.x = -50;
+        this.y = rand(0, H*0.3);
+        this.vx = this.type === 'comet' ? rand(150,220) : rand(60,90);
+        this.ttl = (W + 100) / this.vx;
+      }
+      if (this.type === 'planet') {
+        this.r = rand(10,20);
+        const hue = Math.floor(rand(0,360));
+        this.color = `hsl(${hue},60%,60%)`;
+      }
     }
     update(dt){
       this.ttl -= dt;
+      if (this.vx) this.x += this.vx * dt;
     }
     render(ctx){
       ctx.save();
@@ -302,6 +314,25 @@
           ctx.beginPath(); ctx.arc(0,0,25,0,Math.PI*2); ctx.fill();
           ctx.strokeStyle = '#444';
           ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0,0,32,0,Math.PI*2); ctx.stroke();
+          break;
+        case 'planet':
+          ctx.fillStyle = this.color;
+          ctx.beginPath(); ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+          ctx.lineWidth = 2; ctx.stroke();
+          break;
+        case 'comet':
+          ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(-40,0); ctx.lineTo(0,0); ctx.stroke();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fill();
+          break;
+        case 'ufo':
+          ctx.fillStyle = '#bbb';
+          ctx.beginPath(); ctx.ellipse(0,0,15,6,0,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle = 'rgba(150,255,150,0.7)';
+          ctx.beginPath(); ctx.arc(0,-4,8,0,Math.PI*2); ctx.fill();
           break;
       }
       ctx.restore();
@@ -742,13 +773,11 @@
         nextTriangle = rand(6.5, 9.0) * early / (1 + Math.max(0, time - 240) * 0.0025);
       }
     }
-    if (time >= 180) {
-      nextCosmic -= dt;
-      if (nextCosmic <= 0) {
-        cosmics.push(new Cosmic());
-        clearEnemies();
-        nextCosmic = rand(12,20);
-      }
+    nextCosmic -= dt;
+    if (nextCosmic <= 0) {
+      cosmics.push(new Cosmic());
+      if (time >= 180) clearEnemies();
+      nextCosmic = rand(12,20);
     }
 
     // Update entities
