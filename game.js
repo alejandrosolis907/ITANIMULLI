@@ -95,6 +95,8 @@
   const eyes = [];
   const cosmics = [];
   let missileHomingToggle = false;
+  let apocalypseTriggered = false;
+
 
   // Spawners control
   let nextReptile = 2;
@@ -272,12 +274,13 @@
   }
 
   class Cosmic {
-    constructor(){
+    constructor(type = null, giant = false){
       const baseTypes = ['galaxy','planet','nebula','comet','blackhole'];
-      this.type = Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)];
-      this.x = rand(0, W);
-      this.y = rand(0, H*0.4);
-      this.ttl = 2.5;
+      this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
+      this.giant = giant;
+      this.x = giant ? W/2 : rand(0, W);
+      this.y = giant ? H/2 : rand(0, H*0.4);
+      this.ttl = giant ? 4 : 2.5;
       if (this.type === 'comet' || this.type === 'ufo') {
         this.x = -50;
         this.y = rand(0, H*0.3);
@@ -310,10 +313,12 @@
           ctx.beginPath(); ctx.arc(0,0,40,0,Math.PI*2); ctx.fill();
           break;
         case 'blackhole':
+          const r = this.giant ? 60 : 25;
           ctx.fillStyle = '#000';
-          ctx.beginPath(); ctx.arc(0,0,25,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
           ctx.strokeStyle = '#444';
-          ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(0,0,32,0,Math.PI*2); ctx.stroke();
+          ctx.lineWidth = this.giant ? 8 : 4;
+          ctx.beginPath(); ctx.arc(0,0,r+7,0,Math.PI*2); ctx.stroke();
           break;
         case 'planet':
           ctx.fillStyle = this.color;
@@ -422,47 +427,62 @@
       this.fired = true;
     }
     render(ctx) {
-      // silueta humanoide con alas
-      ctx.fillStyle = '#eaeefc';
+      const chaos = time >= 96 && time < 100 && !apocalypseTriggered;
       ctx.save();
       ctx.translate(this.x, this.y);
-      // cuerpo
-      ctx.beginPath();
-      ctx.roundRect(-this.w*0.3, -this.h*0.6, this.w*0.6, this.h*0.6, 8);
-      ctx.fill();
-      // cabeza
-      ctx.beginPath();
-      ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
-      ctx.fill();
-      // alas más definidas
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = '#f8faff';
-      ctx.strokeStyle = '#d0d8ff';
-      const drawWing = (dir) => {
-        ctx.save();
-        ctx.scale(dir, 1);
+      if (chaos) {
+        ctx.fillStyle = '#ff3030';
         ctx.beginPath();
-        ctx.moveTo(this.w * 0.3, -this.h * 0.45);
-        ctx.quadraticCurveTo(this.w * 0.9, -this.h * 0.9, this.w * 1.1, -this.h * 0.2);
-        ctx.quadraticCurveTo(this.w * 0.9, 0, this.w * 0.3, -this.h * 0.1);
-        ctx.closePath();
+        ctx.roundRect(-this.w*0.3, -this.h*0.6, this.w*0.6, this.h*0.6, 8);
         ctx.fill();
-        // plumas
         ctx.beginPath();
-        for (let i = 0; i < 3; i++) {
-          const fx = this.w * (0.6 + i * 0.15);
-          const fy = -this.h * (0.7 - i * 0.15);
-          const tx = this.w * (0.4 + i * 0.1);
-          const ty = -this.h * (0.15 - i * 0.03);
+        ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-4, -this.h*0.78); ctx.lineTo(-8, -this.h*0.95); ctx.lineTo(-1, -this.h*0.82); ctx.closePath();
+        ctx.moveTo(4, -this.h*0.78); ctx.lineTo(8, -this.h*0.95); ctx.lineTo(1, -this.h*0.82); ctx.closePath();
+        ctx.fill();
+      } else {
+        // silueta humanoide con alas
+        ctx.fillStyle = '#eaeefc';
+        // cuerpo
+        ctx.beginPath();
+        ctx.roundRect(-this.w*0.3, -this.h*0.6, this.w*0.6, this.h*0.6, 8);
+        ctx.fill();
+        // cabeza
+        ctx.beginPath();
+        ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
+        ctx.fill();
+        // alas más definidas
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#f8faff';
+        ctx.strokeStyle = '#d0d8ff';
+        const drawWing = (dir) => {
+          ctx.save();
+          ctx.scale(dir, 1);
+          ctx.beginPath();
           ctx.moveTo(this.w * 0.3, -this.h * 0.45);
-          ctx.quadraticCurveTo(fx, fy, tx, ty);
-        }
-        ctx.stroke();
-        ctx.restore();
-      };
-      drawWing(1);
-      drawWing(-1);
-      ctx.globalAlpha = 1;
+          ctx.quadraticCurveTo(this.w * 0.9, -this.h * 0.9, this.w * 1.1, -this.h * 0.2);
+          ctx.quadraticCurveTo(this.w * 0.9, 0, this.w * 0.3, -this.h * 0.1);
+          ctx.closePath();
+          ctx.fill();
+          // plumas
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const fx = this.w * (0.6 + i * 0.15);
+            const fy = -this.h * (0.7 - i * 0.15);
+            const tx = this.w * (0.4 + i * 0.1);
+            const ty = -this.h * (0.15 - i * 0.03);
+            ctx.moveTo(this.w * 0.3, -this.h * 0.45);
+            ctx.quadraticCurveTo(fx, fy, tx, ty);
+          }
+          ctx.stroke();
+          ctx.restore();
+        };
+        drawWing(1);
+        drawWing(-1);
+        ctx.globalAlpha = 1;
+      }
       ctx.restore();
     }
   }
@@ -604,16 +624,28 @@
       ctx.fillStyle = '#f5e6a6';
       ctx.beginPath();
       ctx.moveTo(0, -32); ctx.lineTo(-28, 24); ctx.lineTo(28, 24); ctx.closePath(); ctx.fill();
-      // ojo con pupila humana
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.ellipse(0, -6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#6fa8dc'; // iris
-      ctx.beginPath();
-      ctx.arc(0, -6, 4, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(0, -6, 2, 0, Math.PI*2); ctx.fill();
+      const chaos = time >= 96 && time < 100 && !apocalypseTriggered;
+      if (chaos) {
+        ctx.fillStyle = '#f00';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#4aff4a';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 5, 5, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 1.5, 5, 0, 0, Math.PI*2); ctx.fill();
+      } else {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#6fa8dc'; // iris
+        ctx.beginPath();
+        ctx.arc(0, -6, 4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(0, -6, 2, 0, Math.PI*2); ctx.fill();
+      }
       ctx.restore();
       // línea de apuntado (si aún no dispara)
       if (!this.fired) {
@@ -679,6 +711,8 @@
     nextEye = 10 * ease;
     nextTriangle = rand(6.5,9.0) * ease;
     missileHomingToggle = false;
+    apocalypseTriggered = false;
+    nextCosmic = rand(12,20);
     shieldUntil = 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
@@ -726,8 +760,17 @@
     time = ts - startTs;
     score = time;
 
+    if (!apocalypseTriggered && time >= 100) {
+      apocalypseTriggered = true;
+      cosmics.push(new Cosmic('blackhole', true));
+      clearEnemies();
+      resetAndStart();
+      return;
+    }
+
     // dificultad: se mantiene estable hasta los 240s y luego aumenta
     speed = 420 * (1 + Math.max(0, time - 240) * 0.004);
+    if (time >= 96 && time < 100 && !apocalypseTriggered) speed *= 1.4;
 
     // Wing boosts a los 60s, 120s, 180s (15s cada uno)
     const checkpoints = [60, 120, 180];
@@ -748,15 +791,16 @@
   requestAnimationFrame(loop);
 
   function update(dt){
+    const chaos = time >= 96 && time < 100 && !apocalypseTriggered;
     // Spawns
-    nextReptile -= dt;
+    nextReptile -= dt * (chaos ? 2 : 1);
     if (nextReptile <= 0) {
       reptiles.push(new Reptile());
       const early = 1 + Math.max(0, 240 - time) / 240;
       nextReptile = rand(1.6, 2.6) * early / (1 + Math.max(0, time - 240) * 0.003);
     }
     if (time >= 12) {
-      nextAngel -= dt;
+      nextAngel -= dt * (chaos ? 2 : 1);
       if (nextAngel <= 0) {
         angels.push(new Angel());
         const early = 1 + Math.max(0, 240 - time) / 240;
@@ -764,7 +808,7 @@
       }
     }
     if (time >= 18) {
-      nextEye -= dt;
+      nextEye -= dt * (chaos ? 2 : 1);
       if (nextEye <= 0) {
         eyes.push(new EyeAngel());
         const early = 1 + Math.max(0, 240 - time) / 240;
@@ -772,7 +816,7 @@
       }
     }
     if (time >= 36) {
-      nextTriangle -= dt;
+      nextTriangle -= dt * (chaos ? 2 : 1);
       if (nextTriangle <= 0) {
         triangles.push(new TriangleEye());
         const early = 1 + Math.max(0, 240 - time) / 240;
