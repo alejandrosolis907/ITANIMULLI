@@ -71,7 +71,7 @@
   let score = 0, best = parseFloat(localStorage.getItem('runnerHighScore') || '0') || 0;
   bestEl.textContent = best.toFixed(1);
 
-  let livesBase = 3;
+  let livesBase = 10;
   let lives = livesBase;
   let shieldActive = false;
   let shieldUntil = 0;
