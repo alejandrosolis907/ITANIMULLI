@@ -121,7 +121,7 @@
     extraWingJumps: 1, // salto extra cuando hay alas
     width: () => 50,
     height: () => 90,
-    color: '#0a0a0a',
+    color: '#fff',
     tryJump(){
       const now = time;
       const inWing = now < wingActiveUntil;
@@ -172,7 +172,7 @@
       const armSwing = Math.sin(time*10)*10;
       const legSwing = Math.sin(time*10)*10;
 
-      ctx.fillStyle = '#111';
+      ctx.fillStyle = this.color;
 
       // Torso
       ctx.beginPath();
