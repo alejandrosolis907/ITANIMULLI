@@ -17,9 +17,25 @@
   resize();
   window.addEventListener('resize', resize);
 
+  // Estrellas de fondo
+  const stars = Array.from({ length: 100 }, () => ({
+    x: Math.random(),
+    y: Math.random(),
+    r: Math.random() * 1.5 + 0.5
+  }));
+
   // -------- Utils
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+  function drawStars() {
+    ctx.fillStyle = '#fff';
+    stars.forEach(s => {
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
 
   // -------- Audio (simple WebAudio beeps)
   const Audio = (() => {
@@ -70,12 +86,13 @@
   const lasers = [];
   const angels = [];
   const eyes = [];
+  let missileHomingToggle = false;
 
   // Spawners control
   let nextReptile = 2;
   let nextAngel = 6;
   let nextEye = 10;
-  let nextTriangle = 35; // after 30s
+  let nextTriangle = rand(6.5, 9.0); // interval once triangles start
 
   // Input
   const keys = new Set();
@@ -83,13 +100,13 @@
     if (['ArrowUp','Space','KeyM','KeyR'].includes(e.code)) e.preventDefault();
     if (e.code === 'KeyM') Audio.toggle();
     if (e.code === 'KeyR' && state !== STATE.PLAY) resetAndStart();
-    if (state === STATE.MENU && (e.code === 'Space' || e.code === 'ArrowUp')) { resetAndStart(); return; }
+    if (state === STATE.MENU && (e.code === 'Space' || e.code === 'ArrowUp')) { startGame(); return; }
     if (state !== STATE.PLAY) return;
     keys.add(e.code);
     if ((e.code === 'Space' || e.code === 'ArrowUp')) player.tryJump();
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
-  startBtn.addEventListener('click', () => resetAndStart());
+  startBtn.addEventListener('click', startGame);
 
   // Player
   const player = {
@@ -214,12 +231,12 @@
       // Escudo (Estrella de David) cuando activo
       if (shieldActive) {
         const rad = 68;
-        drawStarOfDavid(ctx, this.x()+w*0.3, y - h*0.45, rad, '#6bd1ff');
+        drawStarOfDavid(ctx, this.x()+w*0.3, y - h*0.45, rad, '#d4af37');
       }
     }
   };
 
-  function drawStarOfDavid(ctx, cx, cy, r, color='#6bd1ff') {
+  function drawStarOfDavid(ctx, cx, cy, r, color='#d4af37') {
     ctx.save();
     ctx.lineWidth = 2;
     ctx.strokeStyle = color;
@@ -248,7 +265,7 @@
   class Reptile {
     constructor() {
       this.w = rand(28, 36);
-      this.h = rand(28, 40);
+      this.h = rand(48, 60);
       this.x = W + this.w + 10;
       this.y = groundY();
       this.speed = speed * rand(0.75, 1.05);
@@ -300,8 +317,8 @@
     }
     fire() {
       // Dispara misil dirigido al muslo derecho del jugador
-      const target = player.thigh();
-      missiles.push(new Missile(this.x, this.y, target.x, target.y));
+      const homing = time >= 180 ? (missileHomingToggle = !missileHomingToggle) : false;
+      missiles.push(new Missile(this.x, this.y, homing));
       this.fired = true;
     }
     render(ctx) {
@@ -378,25 +395,25 @@
   }
 
   class Missile {
-    constructor(x, y, tx, ty) {
+    constructor(x, y, homing = true) {
       this.x = x; this.y = y;
       this.vx = -220; this.vy = 0;
       this.speed = 260;
       this.alive = true;
-      this.targetBias = 0.9;
+      this.homing = homing;
     }
     update(dt) {
-      // guía hacia el muslo actual del jugador
-      const t = player.thigh();
-      const dx = t.x - this.x, dy = t.y - this.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const ux = dx/d, uy = dy/d;
-      // homing suave
-      this.vx = this.vx*0.9 + this.speed*ux*0.1;
-      this.vy = this.vy*0.9 + this.speed*uy*0.1;
-      this.x += this.vx*dt;
-      this.y += this.vy*dt;
-      if (this.x < -40 || this.x>W+40 || this.y< -40 || this.y>H+40) this.alive = false;
+      if (this.homing) {
+        const t = player.thigh();
+        const dx = t.x - this.x, dy = t.y - this.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const ux = dx / d, uy = dy / d;
+        this.vx = this.vx * 0.9 + this.speed * ux * 0.1;
+        this.vy = this.vy * 0.9 + this.speed * uy * 0.1;
+      }
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      if (this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
     render(ctx) {
       // misil simple
@@ -520,10 +537,15 @@
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
     time = 0; startTs = performance.now()/1000; lastTs = startTs;
     speed = 420;
-    nextReptile = 2; nextAngel = 6; nextEye = 10; nextTriangle = 35;
+    nextReptile = 2; nextAngel = 6; nextEye = 10; nextTriangle = rand(6.5,9.0);
+    missileHomingToggle = false;
     shieldUntil = 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
+  }
+
+  function startGame(){
+    resetAndStart();
   }
 
   function endGame(){
@@ -607,7 +629,7 @@
         nextEye = rand(5.5, 9.5) / (1 + time*0.002);
       }
     }
-    if (time >= 30) {
+    if (time >= 36) {
       nextTriangle -= dt;
       if (nextTriangle <= 0) {
         triangles.push(new TriangleEye());
@@ -662,6 +684,7 @@
     grad.addColorStop(1,'#101a3a');
     ctx.fillStyle = grad;
     ctx.fillRect(0,0,W,H);
+    drawStars();
 
     // Suelo
     ctx.fillStyle = '#0b1536';
