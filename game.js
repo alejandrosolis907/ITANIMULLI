@@ -96,6 +96,8 @@
   const cosmics = [];
   let missileHomingToggle = false;
   let apocalypseTriggered = false;
+  let cycleStart = 0;
+  let cycle = 0;
 
 
   // Spawners control
@@ -441,7 +443,7 @@
       this.fired = true;
     }
     render(ctx) {
-      const chaos = time >= 90 && time < 115 && !apocalypseTriggered;
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
       ctx.save();
       ctx.translate(this.x, this.y);
       if (chaos) {
@@ -652,7 +654,7 @@
       ctx.fillStyle = '#f5e6a6';
       ctx.beginPath();
       ctx.moveTo(0, -32); ctx.lineTo(-28, 24); ctx.lineTo(28, 24); ctx.closePath(); ctx.fill();
-      const chaos = time >= 90 && time < 115 && !apocalypseTriggered;
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
       if (chaos) {
         ctx.fillStyle = '#f00';
         ctx.beginPath();
@@ -737,22 +739,34 @@
   }
 
   // Reset & Start
-  function resetAndStart(){
+  function resetAndStart(preserve=false){
     state = STATE.PLAY;
-    lives = livesBase;
-    livesEl.textContent = lives;
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
-    time = 0; startTs = performance.now()/1000; lastTs = startTs;
-    speed = 420;
-    const ease = 1 + (240 - 0) / 240; // inicio más fácil
-    nextReptile = 2 * ease;
-    nextAngel = 6 * ease;
-    nextEye = 10 * ease;
-    nextTriangle = rand(6.5,9.0) * ease;
     missileHomingToggle = false;
     apocalypseTriggered = false;
     nextCosmic = rand(12,20);
-    shieldUntil = 3; shieldActive = true; Audio.shield();
+    if (preserve) {
+      cycle++;
+      cycleStart = time;
+      startTs = performance.now()/1000 - time;
+      livesEl.textContent = lives;
+    } else {
+      lives = livesBase;
+      livesEl.textContent = lives;
+      time = 0;
+      cycleStart = 0;
+      cycle = 0;
+      startTs = performance.now()/1000;
+    }
+    lastTs = startTs;
+    speed = 420;
+    const ease = 1 + (240 - 0) / 240; // inicio más fácil
+    const diff = 1 + cycle * 0.15;
+    nextReptile = 2 * ease / diff;
+    nextAngel = 6 * ease / diff;
+    nextEye = 10 * ease / diff;
+    nextTriangle = rand(6.5,9.0) * ease / diff;
+    shieldUntil = time + 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
   }
@@ -798,23 +812,24 @@
 
     time = ts - startTs;
     score = time;
+    const cycleTime = time - cycleStart;
 
-    if (!apocalypseTriggered && time >= 115) {
+    if (!apocalypseTriggered && cycleTime >= 115) {
       apocalypseTriggered = true;
       cosmics.push(new Cosmic('blackhole', true));
       clearEnemies();
-      resetAndStart();
+      resetAndStart(true);
       return;
     }
 
-    // dificultad: se mantiene estable hasta los 240s y luego aumenta
+    // dificultad: se mantiene estable hasta los 240s globales y luego aumenta
     speed = 420 * (1 + Math.max(0, time - 240) * 0.004);
-    if (time >= 90 && time < 115 && !apocalypseTriggered) speed *= 1.4;
+    if (cycleTime >= 90 && cycleTime < 115 && !apocalypseTriggered) speed *= 1.4;
 
-    // Wing boosts a los 60s, 120s, 180s (15s cada uno)
+    // Wing boosts a los 60s, 120s, 180s (15s cada uno) por ciclo
     const checkpoints = [60, 120, 180];
     for (let i=wingBoosts; i<checkpoints.length; i++) {
-      if (time >= checkpoints[i]) {
+      if (cycleTime >= checkpoints[i]) {
         wingBoosts++;
         wingActiveUntil = time + 15;
         player.extraWingJumps = 1; // recarga salto extra
@@ -830,36 +845,38 @@
   requestAnimationFrame(loop);
 
   function update(dt){
-    const chaos = time >= 90 && time < 115 && !apocalypseTriggered;
+    const cycleTime = time - cycleStart;
+    const chaos = cycleTime >= 90 && cycleTime < 115 && !apocalypseTriggered;
+    const difficulty = 1 + cycle * 0.15;
     // Spawns
     nextReptile -= dt * (chaos ? 2 : 1);
     if (nextReptile <= 0) {
       reptiles.push(new Reptile());
-      const early = 1 + Math.max(0, 240 - time) / 240;
-      nextReptile = rand(1.6, 2.6) * early / (1 + Math.max(0, time - 240) * 0.003);
+      const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+      nextReptile = rand(1.6, 2.6) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.003));
     }
-    if (time >= 12) {
+    if (cycleTime >= 12) {
       nextAngel -= dt * (chaos ? 2 : 1);
       if (nextAngel <= 0) {
         angels.push(new Angel());
-        const early = 1 + Math.max(0, 240 - time) / 240;
-        nextAngel = rand(4.5, 7.0) * early / (1 + Math.max(0, time - 240) * 0.002);
+        const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+        nextAngel = rand(4.5, 7.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
     }
-    if (time >= 18) {
+    if (cycleTime >= 18) {
       nextEye -= dt * (chaos ? 2 : 1);
       if (nextEye <= 0) {
         eyes.push(new EyeAngel());
-        const early = 1 + Math.max(0, 240 - time) / 240;
-        nextEye = rand(5.5, 9.5) * early / (1 + Math.max(0, time - 240) * 0.002);
+        const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+        nextEye = rand(5.5, 9.5) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
     }
-    if (time >= 36) {
+    if (cycleTime >= 36) {
       nextTriangle -= dt * (chaos ? 2 : 1);
       if (nextTriangle <= 0) {
         triangles.push(new TriangleEye());
-        const early = 1 + Math.max(0, 240 - time) / 240;
-        nextTriangle = rand(6.5, 9.0) * early / (1 + Math.max(0, time - 240) * 0.0025);
+        const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+        nextTriangle = rand(6.5, 9.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.0025));
       }
     }
     nextCosmic -= dt;
@@ -907,7 +924,7 @@
     });
 
     // HUD
-    hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives}`;
+    hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives} · Fase: ${cycle + 1}`;
     hud.speedPill.textContent = `Velocidad: ${(speed/420).toFixed(2)}x`;
     hud.wingPill.textContent = (time < wingActiveUntil) ? `Alas: ${(wingActiveUntil-time).toFixed(0)}s` : `Alas: —`;
   }
@@ -947,9 +964,10 @@
     player.render(ctx);
 
     // Mensajes situacionales
-    if (time < 3) {
+    const cycleTime = time - cycleStart;
+    if (cycleTime < 3) {
       drawTip(`ESCUDO INICIAL 3s`, player.x()+20, player.y - player.height() - 60);
-    } else if (Math.abs((time%60)-0) < 0.2 && time>59.5 && time<61) {
+    } else if (Math.abs((cycleTime%60)-0) < 0.2 && cycleTime>59.5 && cycleTime<61) {
       drawTip(`¡ALAS ACTIVADAS!`, player.x()+20, player.y - player.height() - 60);
     }
   }
