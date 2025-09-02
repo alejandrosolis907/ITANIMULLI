@@ -634,7 +634,11 @@
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
     time = 0; startTs = performance.now()/1000; lastTs = startTs;
     speed = 420;
-    nextReptile = 2; nextAngel = 6; nextEye = 10; nextTriangle = rand(6.5,9.0);
+    const ease = 1 + (240 - 0) / 240; // inicio más fácil
+    nextReptile = 2 * ease;
+    nextAngel = 6 * ease;
+    nextEye = 10 * ease;
+    nextTriangle = rand(6.5,9.0) * ease;
     missileHomingToggle = false;
     shieldUntil = 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
@@ -683,8 +687,8 @@
     time = ts - startTs;
     score = time;
 
-    // dificultad: se mantiene estable hasta los 180s y luego aumenta
-    speed = 420 * (1 + Math.max(0, time - 180) * 0.004);
+    // dificultad: se mantiene estable hasta los 240s y luego aumenta
+    speed = 420 * (1 + Math.max(0, time - 240) * 0.004);
 
     // Wing boosts a los 60s, 120s, 180s (15s cada uno)
     const checkpoints = [60, 120, 180];
@@ -709,27 +713,31 @@
     nextReptile -= dt;
     if (nextReptile <= 0) {
       reptiles.push(new Reptile());
-      nextReptile = rand(1.6, 2.6) / (1 + Math.max(0, time-180)*0.003);
+      const early = 1 + Math.max(0, 240 - time) / 240;
+      nextReptile = rand(1.6, 2.6) * early / (1 + Math.max(0, time - 240) * 0.003);
     }
     if (time >= 12) {
       nextAngel -= dt;
       if (nextAngel <= 0) {
         angels.push(new Angel());
-        nextAngel = rand(4.5, 7.0) / (1 + Math.max(0, time-180)*0.002);
+        const early = 1 + Math.max(0, 240 - time) / 240;
+        nextAngel = rand(4.5, 7.0) * early / (1 + Math.max(0, time - 240) * 0.002);
       }
     }
     if (time >= 18) {
       nextEye -= dt;
       if (nextEye <= 0) {
         eyes.push(new EyeAngel());
-        nextEye = rand(5.5, 9.5) / (1 + Math.max(0, time-180)*0.002);
+        const early = 1 + Math.max(0, 240 - time) / 240;
+        nextEye = rand(5.5, 9.5) * early / (1 + Math.max(0, time - 240) * 0.002);
       }
     }
     if (time >= 36) {
       nextTriangle -= dt;
       if (nextTriangle <= 0) {
         triangles.push(new TriangleEye());
-        nextTriangle = rand(6.5, 9.0) / (1 + Math.max(0, time-180)*0.0025);
+        const early = 1 + Math.max(0, 240 - time) / 240;
+        nextTriangle = rand(6.5, 9.0) * early / (1 + Math.max(0, time - 240) * 0.0025);
       }
     }
     if (time >= 180) {
