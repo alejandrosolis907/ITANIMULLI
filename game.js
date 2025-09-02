@@ -216,29 +216,34 @@
     }
   };
 
-  function drawStarOfDavid(ctx, cx, cy, r, color='#ffd700') {
+  function drawStarOfDavid(ctx, cx, cy, r, color = '#ffd700') {
     ctx.save();
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 6;
     ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.strokeStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
     // Triángulo hacia arriba
     ctx.beginPath();
-    for (let i=0;i<3;i++){
-      const a = (-90 + i*120)*Math.PI/180;
-      const x = cx + r*Math.cos(a);
-      const y = cy + r*Math.sin(a);
-      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    for (let i = 0; i < 3; i++) {
+      const a = (-90 + i * 120) * Math.PI / 180;
+      const x = cx + r * Math.cos(a);
+      const y = cy + r * Math.sin(a);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
-    ctx.closePath(); ctx.stroke();
+    ctx.closePath();
+    ctx.stroke();
     // Triángulo hacia abajo
     ctx.beginPath();
-    for (let i=0;i<3;i++){
-      const a = (30 + i*120)*Math.PI/180;
-      const x = cx + r*Math.cos(a);
-      const y = cy + r*Math.sin(a);
-      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    for (let i = 0; i < 3; i++) {
+      const a = (30 + i * 120) * Math.PI / 180;
+      const x = cx + r * Math.cos(a);
+      const y = cy + r * Math.sin(a);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
-    ctx.closePath(); ctx.stroke();
+    ctx.closePath();
+    ctx.stroke();
     ctx.restore();
   }
 
