@@ -169,9 +169,6 @@
       ctx.fill();
 
       const x = this.x(), y = this.y, w = this.width(), h = this.height();
-      const armSwing = Math.sin(time*10)*10;
-      const legSwing = Math.sin(time*10)*10;
-
       ctx.fillStyle = this.color;
 
       // Torso
@@ -184,31 +181,13 @@
       ctx.arc(x + w*0.5, y - h*0.9, w*0.18, 0, Math.PI*2);
       ctx.fill();
 
-      // Brazos
-      ctx.save();
-      ctx.translate(x + w*0.3, y - h*0.65);
-      ctx.rotate(armSwing*Math.PI/180);
-      ctx.fillRect(-w*0.1, 0, w*0.1, h*0.35);
-      ctx.restore();
+      // Brazos estáticos
+      ctx.fillRect(x + w*0.2, y - h*0.65, w*0.1, h*0.35);
+      ctx.fillRect(x + w*0.7, y - h*0.65, w*0.1, h*0.35);
 
-      ctx.save();
-      ctx.translate(x + w*0.7, y - h*0.65);
-      ctx.rotate(-armSwing*Math.PI/180);
-      ctx.fillRect(0, 0, w*0.1, h*0.35);
-      ctx.restore();
-
-      // Piernas
-      ctx.save();
-      ctx.translate(x + w*0.42, y);
-      ctx.rotate(-legSwing*Math.PI/180);
-      ctx.fillRect(-w*0.08, -h*0.35, w*0.16, h*0.35);
-      ctx.restore();
-
-      ctx.save();
-      ctx.translate(x + w*0.58, y);
-      ctx.rotate(legSwing*Math.PI/180);
-      ctx.fillRect(-w*0.08, -h*0.35, w*0.16, h*0.35);
-      ctx.restore();
+      // Piernas estáticas
+      ctx.fillRect(x + w*0.34, y - h*0.35, w*0.16, h*0.35);
+      ctx.fillRect(x + w*0.5, y - h*0.35, w*0.16, h*0.35);
 
       // Alas temporales (cuando activas)
       if (time < wingActiveUntil) {
