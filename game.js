@@ -222,21 +222,35 @@
 
       // Alas temporales (cuando activas)
       if (time < wingActiveUntil) {
-        ctx.fillStyle = '#e5ecff';
-        ctx.globalAlpha = 0.7;
-        // ala izquierda
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.35, y - h*0.55);
-        ctx.quadraticCurveTo(x - w*0.2, y - h*0.85, x + w*0.35, y - h*0.9);
-        ctx.quadraticCurveTo(x, y - h*0.7, x + w*0.35, y - h*0.55);
-        ctx.fill();
-        // ala derecha
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.65, y - h*0.55);
-        ctx.quadraticCurveTo(x + w*1.2, y - h*0.85, x + w*0.65, y - h*0.9);
-        ctx.quadraticCurveTo(x + w, y - h*0.7, x + w*0.65, y - h*0.55);
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        ctx.save();
+        ctx.translate(x + w * 0.5, y - h * 0.55);
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#f8faff';
+        ctx.strokeStyle = '#d0d8ff';
+        const drawWing = (dir) => {
+          ctx.save();
+          ctx.scale(dir, 1);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(w * 0.9, -h * 0.6, w * 0.8, h * 0.1);
+          ctx.quadraticCurveTo(w * 0.6, h * 0.2, 0, h * 0.1);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const fx = w * (0.6 + i * 0.15);
+            const fy = -h * (0.4 - i * 0.1);
+            const tx = w * (0.4 + i * 0.1);
+            const ty = h * (0.05 + i * 0.04);
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(fx, fy, tx, ty);
+          }
+          ctx.stroke();
+          ctx.restore();
+        };
+        drawWing(-1);
+        drawWing(1);
+        ctx.restore();
       }
 
       // Escudo (hexagrama) cuando activo
