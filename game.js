@@ -441,7 +441,7 @@
       this.fired = true;
     }
     render(ctx) {
-      const chaos = time >= 96 && time < 100 && !apocalypseTriggered;
+      const chaos = time >= 90 && time < 115 && !apocalypseTriggered;
       ctx.save();
       ctx.translate(this.x, this.y);
       if (chaos) {
@@ -638,7 +638,7 @@
       ctx.fillStyle = '#f5e6a6';
       ctx.beginPath();
       ctx.moveTo(0, -32); ctx.lineTo(-28, 24); ctx.lineTo(28, 24); ctx.closePath(); ctx.fill();
-      const chaos = time >= 96 && time < 100 && !apocalypseTriggered;
+      const chaos = time >= 90 && time < 115 && !apocalypseTriggered;
       if (chaos) {
         ctx.fillStyle = '#f00';
         ctx.beginPath();
@@ -774,7 +774,7 @@
     time = ts - startTs;
     score = time;
 
-    if (!apocalypseTriggered && time >= 100) {
+    if (!apocalypseTriggered && time >= 115) {
       apocalypseTriggered = true;
       cosmics.push(new Cosmic('blackhole', true));
       clearEnemies();
@@ -784,7 +784,7 @@
 
     // dificultad: se mantiene estable hasta los 240s y luego aumenta
     speed = 420 * (1 + Math.max(0, time - 240) * 0.004);
-    if (time >= 96 && time < 100 && !apocalypseTriggered) speed *= 1.4;
+    if (time >= 90 && time < 115 && !apocalypseTriggered) speed *= 1.4;
 
     // Wing boosts a los 60s, 120s, 180s (15s cada uno)
     const checkpoints = [60, 120, 180];
@@ -805,7 +805,7 @@
   requestAnimationFrame(loop);
 
   function update(dt){
-    const chaos = time >= 96 && time < 100 && !apocalypseTriggered;
+    const chaos = time >= 90 && time < 115 && !apocalypseTriggered;
     // Spawns
     nextReptile -= dt * (chaos ? 2 : 1);
     if (nextReptile <= 0) {
