@@ -398,21 +398,29 @@
       ctx.beginPath();
       ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
       ctx.fill();
-      // ojos amenazantes
-      ctx.fillStyle = '#ffd54f';
+      // ojos reptilianos (dos)
       const eyeY = -this.h * 0.92;
+      ctx.fillStyle = '#ffd54f';
       // ojo izquierdo
       ctx.beginPath();
-      ctx.ellipse(-this.w * 0.05, eyeY, this.w * 0.06, this.h * 0.04, 0, 0, Math.PI * 2);
+      ctx.ellipse(-this.w * 0.07, eyeY, this.w * 0.08, this.h * 0.05, 0, 0, Math.PI * 2);
       ctx.fill();
       // ojo derecho
       ctx.beginPath();
-      ctx.ellipse(this.w * 0.05, eyeY, this.w * 0.06, this.h * 0.04, 0, 0, Math.PI * 2);
+      ctx.ellipse(this.w * 0.07, eyeY, this.w * 0.08, this.h * 0.05, 0, 0, Math.PI * 2);
       ctx.fill();
-      // pupilas
-      ctx.fillStyle = '#000';
-      ctx.fillRect(-this.w * 0.06, eyeY - this.h * 0.035, this.w * 0.02, this.h * 0.07);
-      ctx.fillRect(this.w * 0.04, eyeY - this.h * 0.035, this.w * 0.02, this.h * 0.07);
+      // pupilas en forma de hendidura vertical
+      ctx.fillStyle = '#113f22';
+      ctx.beginPath();
+      ctx.moveTo(-this.w * 0.07, eyeY - this.h * 0.04);
+      ctx.lineTo(-this.w * 0.05, eyeY);
+      ctx.lineTo(-this.w * 0.07, eyeY + this.h * 0.04);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(this.w * 0.07, eyeY - this.h * 0.04);
+      ctx.lineTo(this.w * 0.05, eyeY);
+      ctx.lineTo(this.w * 0.07, eyeY + this.h * 0.04);
+      ctx.fill();
       // cejas inclinadas
       ctx.strokeStyle = '#113f22';
       ctx.lineWidth = 2;
