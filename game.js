@@ -423,14 +423,14 @@
       ctx.fill();
 
       // pupilas verticales tipo línea
-      ctx.fillStyle = '#113f22';
+      ctx.fillStyle = '#005d00';
       const pupilW = eyeW * 0.1;
       const pupilH = eyeH * 0.8;
       ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
       ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
       // boca centrada con colmillos
       const mouthY = -this.h * 0.86;
-      ctx.fillStyle = '#113f22';
+      ctx.fillStyle = '#005d00';
       ctx.beginPath();
       ctx.arc(0, mouthY, this.w * 0.1, 0, Math.PI, false);
       ctx.fill();
@@ -445,7 +445,7 @@
       ctx.lineTo(this.w * 0.02, mouthY + this.h * 0.07);
       ctx.lineTo(0, mouthY);
       ctx.fill();
-      ctx.fillStyle = '#113f22';
+      ctx.fillStyle = '#005d00';
       // cola
       ctx.beginPath();
       ctx.moveTo(-this.w*0.25, -this.h*0.2);
