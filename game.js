@@ -403,6 +403,25 @@
       ctx.beginPath();
       ctx.ellipse(this.w*0.08, -this.h*0.92, this.w*0.05, this.h*0.03, 0, 0, Math.PI*2);
       ctx.fill();
+      // boca con colmillos
+      ctx.strokeStyle = '#113f22';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, -this.h*0.88, this.w*0.08, 0, Math.PI);
+      ctx.stroke();
+      // colmillos
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(-this.w*0.03, -this.h*0.88);
+      ctx.lineTo(-this.w*0.02, -this.h*0.83);
+      ctx.lineTo(-this.w*0.01, -this.h*0.88);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(this.w*0.01, -this.h*0.88);
+      ctx.lineTo(this.w*0.02, -this.h*0.83);
+      ctx.lineTo(this.w*0.03, -this.h*0.88);
+      ctx.fill();
+      ctx.fillStyle = '#113f22';
       // cola
       ctx.beginPath();
       ctx.moveTo(-this.w*0.25, -this.h*0.2);
