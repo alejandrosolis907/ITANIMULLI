@@ -422,14 +422,12 @@
       ctx.ellipse(eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // pupilas verticales
+      // pupilas verticales tipo línea
       ctx.fillStyle = '#113f22';
-      ctx.beginPath();
-      ctx.ellipse(-eyeOffset, eyeY, eyeW * 0.15, eyeH * 0.8, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(eyeOffset, eyeY, eyeW * 0.15, eyeH * 0.8, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const pupilW = eyeW * 0.1;
+      const pupilH = eyeH * 0.8;
+      ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
+      ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
       // cejas inclinadas
       ctx.strokeStyle = '#113f22';
       ctx.lineWidth = 2;
@@ -439,22 +437,22 @@
       ctx.moveTo(this.w * 0.09, -this.h * 0.97);
       ctx.lineTo(this.w * 0.02, -this.h * 0.94);
       ctx.stroke();
-      // boca lateral con colmillos
-      const mouthX = this.w * 0.12;
+      // boca centrada con colmillos
+      const mouthY = -this.h * 0.86;
       ctx.fillStyle = '#113f22';
       ctx.beginPath();
-      ctx.arc(mouthX, -this.h * 0.86, this.w * 0.1, 0, Math.PI, false);
+      ctx.arc(0, mouthY, this.w * 0.1, 0, Math.PI, false);
       ctx.fill();
       ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.moveTo(mouthX - this.w * 0.04, -this.h * 0.86);
-      ctx.lineTo(mouthX - this.w * 0.02, -this.h * 0.79);
-      ctx.lineTo(mouthX, -this.h * 0.86);
+      ctx.moveTo(-this.w * 0.04, mouthY);
+      ctx.lineTo(-this.w * 0.02, mouthY + this.h * 0.07);
+      ctx.lineTo(0, mouthY);
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(mouthX + this.w * 0.02, -this.h * 0.86);
-      ctx.lineTo(mouthX + this.w * 0.04, -this.h * 0.79);
-      ctx.lineTo(mouthX + this.w * 0.06, -this.h * 0.86);
+      ctx.moveTo(this.w * 0.04, mouthY);
+      ctx.lineTo(this.w * 0.02, mouthY + this.h * 0.07);
+      ctx.lineTo(0, mouthY);
       ctx.fill();
       ctx.fillStyle = '#113f22';
       // cola
