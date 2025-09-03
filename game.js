@@ -10,15 +10,16 @@
   const livesEl = document.getElementById('lives');
   const jumpBtn = document.getElementById('jumpBtn');
   const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+  const SCALE = isTouchDevice ? 0.8 : 1;
 
   let W = 0, H = 0;
   function resizeCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     canvas.width = Math.floor(window.innerWidth * dpr);
     canvas.height = Math.floor(window.innerHeight * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    W = canvas.width / dpr;
-    H = canvas.height / dpr;
+    ctx.setTransform(dpr * SCALE, 0, 0, dpr * SCALE, 0, 0);
+    W = canvas.width / (dpr * SCALE);
+    H = canvas.height / (dpr * SCALE);
   }
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
