@@ -398,28 +398,45 @@
       ctx.beginPath();
       ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
       ctx.fill();
-      // ojo
+      // ojos amenazantes
+      ctx.fillStyle = '#ffd54f';
+      const eyeY = -this.h * 0.92;
+      // ojo izquierdo
+      ctx.beginPath();
+      ctx.ellipse(-this.w * 0.05, eyeY, this.w * 0.06, this.h * 0.04, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // ojo derecho
+      ctx.beginPath();
+      ctx.ellipse(this.w * 0.05, eyeY, this.w * 0.06, this.h * 0.04, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // pupilas
+      ctx.fillStyle = '#000';
+      ctx.fillRect(-this.w * 0.06, eyeY - this.h * 0.035, this.w * 0.02, this.h * 0.07);
+      ctx.fillRect(this.w * 0.04, eyeY - this.h * 0.035, this.w * 0.02, this.h * 0.07);
+      // cejas inclinadas
+      ctx.strokeStyle = '#113f22';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-this.w * 0.09, -this.h * 0.97);
+      ctx.lineTo(-this.w * 0.02, -this.h * 0.94);
+      ctx.moveTo(this.w * 0.09, -this.h * 0.97);
+      ctx.lineTo(this.w * 0.02, -this.h * 0.94);
+      ctx.stroke();
+      // boca abierta con colmillos
       ctx.fillStyle = '#113f22';
       ctx.beginPath();
-      ctx.ellipse(this.w*0.08, -this.h*0.92, this.w*0.05, this.h*0.03, 0, 0, Math.PI*2);
+      ctx.arc(0, -this.h * 0.86, this.w * 0.1, 0, Math.PI, false);
       ctx.fill();
-      // boca con colmillos
-      ctx.strokeStyle = '#113f22';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(0, -this.h*0.88, this.w*0.08, 0, Math.PI);
-      ctx.stroke();
-      // colmillos
       ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.moveTo(-this.w*0.03, -this.h*0.88);
-      ctx.lineTo(-this.w*0.02, -this.h*0.83);
-      ctx.lineTo(-this.w*0.01, -this.h*0.88);
+      ctx.moveTo(-this.w * 0.06, -this.h * 0.86);
+      ctx.lineTo(-this.w * 0.04, -this.h * 0.79);
+      ctx.lineTo(-this.w * 0.02, -this.h * 0.86);
       ctx.fill();
       ctx.beginPath();
-      ctx.moveTo(this.w*0.01, -this.h*0.88);
-      ctx.lineTo(this.w*0.02, -this.h*0.83);
-      ctx.lineTo(this.w*0.03, -this.h*0.88);
+      ctx.moveTo(this.w * 0.02, -this.h * 0.86);
+      ctx.lineTo(this.w * 0.04, -this.h * 0.79);
+      ctx.lineTo(this.w * 0.06, -this.h * 0.86);
       ctx.fill();
       ctx.fillStyle = '#113f22';
       // cola
