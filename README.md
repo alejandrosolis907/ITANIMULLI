@@ -1,4 +1,4 @@
-# RUNNER: ITANIMULLI
+# ITANIMULLI
 
 Pequeño juego tipo *runner* hecho en HTML5 Canvas, inspirado en la idea de un corredor que evita enemigos (reptilianos, ángeles y triángulos con ojo) al estilo sencillo del dinosaurio de Google.
 
