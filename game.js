@@ -428,15 +428,6 @@
       const pupilH = eyeH * 0.8;
       ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
       ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
-      // cejas inclinadas
-      ctx.strokeStyle = '#113f22';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(-this.w * 0.09, -this.h * 0.97);
-      ctx.lineTo(-this.w * 0.02, -this.h * 0.94);
-      ctx.moveTo(this.w * 0.09, -this.h * 0.97);
-      ctx.lineTo(this.w * 0.02, -this.h * 0.94);
-      ctx.stroke();
       // boca centrada con colmillos
       const mouthY = -this.h * 0.86;
       ctx.fillStyle = '#113f22';
