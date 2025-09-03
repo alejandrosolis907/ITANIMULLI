@@ -8,18 +8,40 @@
   const startBtn = document.getElementById('startBtn');
   const bestEl = document.getElementById('best');
   const livesEl = document.getElementById('lives');
+  const jumpBtn = document.getElementById('jumpBtn');
+  const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
 
-  let W = 960, H = 540;
-  function resize() {
-    canvas.width = W = window.innerWidth;
-    canvas.height = H = window.innerHeight;
+  let W = 0, H = 0;
+  function resizeCanvas() {
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = canvas.width / dpr;
+    H = canvas.height / dpr;
   }
-  resize();
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // Estrellas de fondo
+  const stars = Array.from({ length: 100 }, () => ({
+    x: Math.random(),
+    y: Math.random(),
+    r: Math.random() * 1.5 + 0.5
+  }));
 
   // -------- Utils
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+  function drawStars() {
+    ctx.fillStyle = '#fff';
+    stars.forEach(s => {
+      ctx.beginPath();
+      ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  }
 
   // -------- Audio (simple WebAudio beeps)
   const Audio = (() => {
@@ -43,7 +65,8 @@
     return {
       jump, hit, burstLaser, shield,
       toggle(){ muted = !muted; },
-      isMuted(){ return muted; }
+      isMuted(){ return muted; },
+      unlock(){ if (ctx.state === 'suspended') ctx.resume(); }
     };
   })();
 
@@ -55,7 +78,7 @@
   let score = 0, best = parseFloat(localStorage.getItem('runnerHighScore') || '0') || 0;
   bestEl.textContent = best.toFixed(1);
 
-  let livesBase = 3;
+  let livesBase = 10;
   let lives = livesBase;
   let shieldActive = false;
   let shieldUntil = 0;
@@ -70,26 +93,54 @@
   const lasers = [];
   const angels = [];
   const eyes = [];
+  const cosmics = [];
+  let missileHomingToggle = false;
+  let apocalypseTriggered = false;
+  let cycleStart = 0;
+  let cycle = 0;
+
 
   // Spawners control
   let nextReptile = 2;
   let nextAngel = 6;
   let nextEye = 10;
-  let nextTriangle = 35; // after 30s
+  let nextTriangle = rand(6.5, 9.0); // interval once triangles start
+  let nextCosmic = rand(12, 20); // eventos cósmicos a partir de 180s
 
   // Input
   const keys = new Set();
+  function jump(){ if (state === STATE.PLAY) player.tryJump(); }
+
   window.addEventListener('keydown', (e) => {
     if (['ArrowUp','Space','KeyM','KeyR'].includes(e.code)) e.preventDefault();
     if (e.code === 'KeyM') Audio.toggle();
     if (e.code === 'KeyR' && state !== STATE.PLAY) resetAndStart();
-    if (state === STATE.MENU && (e.code === 'Space' || e.code === 'ArrowUp')) { resetAndStart(); return; }
+    if (state === STATE.MENU && (e.code === 'Space' || e.code === 'ArrowUp')) { startGame(); return; }
     if (state !== STATE.PLAY) return;
     keys.add(e.code);
-    if ((e.code === 'Space' || e.code === 'ArrowUp')) player.tryJump();
+    if (e.code === 'Space' || e.code === 'ArrowUp') jump();
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
-  startBtn.addEventListener('click', () => resetAndStart());
+  window.addEventListener('mousedown', (e) => { if (e.button === 0) jump(); });
+  window.addEventListener('pointerup', (e) => {
+    if (e.pointerType === 'touch' || e.pointerType === 'pen' || e.pointerType === 'mouse') jump();
+  }, { passive: false });
+  if (jumpBtn) {
+    jumpBtn.addEventListener('pointerup', (e) => { e.preventDefault(); jump(); });
+  }
+  window.addEventListener('gesturestart', (e) => e.preventDefault());
+  startBtn.addEventListener('click', startGame);
+
+  let audioUnlocked = false;
+  function unlockAudio(){
+    if (!audioUnlocked) {
+      try { Audio.unlock(); } catch {}
+      audioUnlocked = true;
+    }
+  }
+  ['pointerdown','keydown','mousedown','touchstart'].forEach(ev =>
+    window.addEventListener(ev, unlockAudio, { once: true })
+  );
 
   // Player
   const player = {
@@ -102,28 +153,29 @@
     extraWingJumps: 1, // salto extra cuando hay alas
     width: () => 50,
     height: () => 90,
-    color: '#0a0a0a',
+    color: '#fff',
     tryJump(){
       const now = time;
       const inWing = now < wingActiveUntil;
+      const boost = isTouchDevice ? 1.15 : 1; // salto ligeramente más alto en pantallas táctiles
       if (this.onGround || this.jumpsLeft > 0 || (inWing && this.jumpsLeft === 0 && this.extraWingJumps > 0)) {
         // Permite salto en tierra, saltos aéreos restantes o un salto extra por alas
         if (this.onGround) {
-          this.vy = -620;
+          this.vy = -620 * boost;
           this.onGround = false;
           this.jumpsLeft = this.baseJumps - 1; // consumimos uno al saltar
         } else if (this.jumpsLeft > 0) {
-          this.vy = -560; // doble salto
+          this.vy = -560 * boost; // doble salto
           this.jumpsLeft--;
         } else if (inWing && this.extraWingJumps > 0) {
-          this.vy = -540; // salto extra por alas
+          this.vy = -540 * boost; // salto extra por alas
           this.extraWingJumps--;
         }
         Audio.jump();
       }
     },
-    thigh(){ // coordenada objetivo para misiles (muslo derecho)
-      return { x: this.x()+this.width()*0.35, y: this.y - this.height()*0.3 };
+    thigh(){ // coordenada objetivo para misiles (cintura)
+      return { x: this.x()+this.width()*0.5, y: this.y - this.height()*0.3 };
     },
     update(dt){
       this.vy += 1600 * dt;
@@ -143,143 +195,266 @@
       shieldActive = time < shieldUntil;
     },
     render(ctx){
-      // Sombra
+      // Sombra del jugador
       ctx.fillStyle = 'rgba(0,0,0,0.25)';
       ctx.beginPath();
       ctx.ellipse(this.x()+this.width()/2, groundY()+8, 28, 8, 0, 0, Math.PI*2);
       ctx.fill();
 
-      // Silueta del cuerpo
-      ctx.fillStyle = '#0d0d0d';
       const x = this.x(), y = this.y, w = this.width(), h = this.height();
-      // Torso & piernas
+      ctx.fillStyle = this.color;
+
+      // Torso
       ctx.beginPath();
-      ctx.roundRect(x, y - h, w*0.6, h*0.65, 8);
+      ctx.roundRect(x + w*0.3, y - h*0.75, w*0.4, h*0.45, 10);
       ctx.fill();
-      // Pierna derecha
-      ctx.fillRect(x + w*0.35, y - h*0.35, w*0.15, h*0.35);
-      // Pierna izquierda
-      ctx.fillRect(x + w*0.1, y - h*0.35, w*0.15, h*0.35);
-      // Brazos en movimiento simple
-      const armSwing = Math.sin(time*10)*6;
-      ctx.save();
-      ctx.translate(x + w*0.05, y - h*0.62);
-      ctx.rotate(armSwing*Math.PI/180);
-      ctx.fillRect(0,0, w*0.12, h*0.28);
-      ctx.restore();
-      ctx.save();
-      ctx.translate(x + w*0.43, y - h*0.62);
-      ctx.rotate(-armSwing*Math.PI/180);
-      ctx.fillRect(0,0, w*0.12, h*0.28);
-      ctx.restore();
+
       // Cabeza
-      ctx.fillStyle = '#161616';
       ctx.beginPath();
-      ctx.ellipse(x + w*0.3, y - h*0.85, w*0.22, h*0.16, 0, 0, Math.PI*2);
+      ctx.arc(x + w*0.5, y - h*0.9, w*0.18, 0, Math.PI*2);
       ctx.fill();
-      // Cabello ligeramente largo
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.ellipse(x + w*0.3, y - h*0.88, w*0.23, h*0.18, 0, 0, Math.PI*2);
-      ctx.fill();
-      // Barba negra
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.moveTo(x + w*0.18, y - h*0.76);
-      ctx.quadraticCurveTo(x + w*0.3, y - h*0.65, x + w*0.42, y - h*0.76);
-      ctx.lineTo(x + w*0.38, y - h*0.78);
-      ctx.quadraticCurveTo(x + w*0.3, y - h*0.70, x + w*0.22, y - h*0.78);
-      ctx.closePath();
-      ctx.fill();
+
+      // Brazos estáticos
+      ctx.fillRect(x + w*0.2, y - h*0.65, w*0.1, h*0.35);
+      ctx.fillRect(x + w*0.7, y - h*0.65, w*0.1, h*0.35);
+
+      // Piernas estáticas
+      ctx.fillRect(x + w*0.34, y - h*0.35, w*0.16, h*0.35);
+      ctx.fillRect(x + w*0.5, y - h*0.35, w*0.16, h*0.35);
 
       // Alas temporales (cuando activas)
       if (time < wingActiveUntil) {
-        ctx.fillStyle = '#e5ecff';
-        ctx.globalAlpha = 0.7;
-        // ala izquierda
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.1, y - h*0.6);
-        ctx.quadraticCurveTo(x - w*0.25, y - h*0.85, x + w*0.1, y - h*0.9);
-        ctx.quadraticCurveTo(x - w*0.05, y - h*0.7, x + w*0.1, y - h*0.6);
-        ctx.fill();
-        // ala derecha
-        ctx.beginPath();
-        ctx.moveTo(x + w*0.5, y - h*0.6);
-        ctx.quadraticCurveTo(x + w*0.85, y - h*0.85, x + w*0.5, y - h*0.9);
-        ctx.quadraticCurveTo(x + w*0.65, y - h*0.7, x + w*0.5, y - h*0.6);
-        ctx.fill();
-        ctx.globalAlpha = 1;
+        ctx.save();
+        ctx.translate(x + w * 0.5, y - h * 0.55);
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#f8faff';
+        ctx.strokeStyle = '#d0d8ff';
+        const drawWing = (dir) => {
+          ctx.save();
+          ctx.scale(dir, 1);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(w * 0.9, -h * 0.6, w * 0.8, h * 0.1);
+          ctx.quadraticCurveTo(w * 0.6, h * 0.2, 0, h * 0.1);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const fx = w * (0.6 + i * 0.15);
+            const fy = -h * (0.4 - i * 0.1);
+            const tx = w * (0.4 + i * 0.1);
+            const ty = h * (0.05 + i * 0.04);
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(fx, fy, tx, ty);
+          }
+          ctx.stroke();
+          ctx.restore();
+        };
+        drawWing(-1);
+        drawWing(1);
+        ctx.restore();
       }
 
-      // Escudo (Estrella de David) cuando activo
+      // Escudo (hexagrama) cuando activo
       if (shieldActive) {
         const rad = 68;
-        drawStarOfDavid(ctx, this.x()+w*0.3, y - h*0.45, rad, '#6bd1ff');
+        drawHexagram(ctx, x + w*0.5, y - h*0.45, rad);
       }
     }
   };
 
-  function drawStarOfDavid(ctx, cx, cy, r, color='#6bd1ff') {
+  function drawHexagram(ctx, cx, cy, r, color = '#ffd700') {
     ctx.save();
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 6;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.strokeStyle = color;
-    // Triángulo hacia arriba
+    ctx.fillStyle = color;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+
     ctx.beginPath();
-    for (let i=0;i<3;i++){
-      const a = (-90 + i*120)*Math.PI/180;
-      const x = cx + r*Math.cos(a);
-      const y = cy + r*Math.sin(a);
-      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI / 6) * i - Math.PI / 2;
+      const radius = i % 2 === 0 ? r : r * 0.5;
+      const x = cx + radius * Math.cos(angle);
+      const y = cy + radius * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
-    ctx.closePath(); ctx.stroke();
-    // Triángulo hacia abajo
-    ctx.beginPath();
-    for (let i=0;i<3;i++){
-      const a = (30 + i*120)*Math.PI/180;
-      const x = cx + r*Math.cos(a);
-      const y = cy + r*Math.sin(a);
-      if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-    }
-    ctx.closePath(); ctx.stroke();
+    ctx.closePath();
+    ctx.globalAlpha = 0.3;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.stroke();
     ctx.restore();
+  }
+
+  class Cosmic {
+    constructor(type = null, giant = false){
+      const baseTypes = ['galaxy','planet','nebula','comet'];
+      this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
+      this.giant = giant;
+      this.x = giant ? W/2 : rand(0, W);
+      this.y = giant ? H/2 : rand(0, H*0.4);
+      this.ttl = giant ? 4 : 2.5;
+      if (this.type === 'comet' || this.type === 'ufo') {
+        this.x = -50;
+        this.y = rand(0, H*0.3);
+        this.vx = this.type === 'comet' ? rand(150,220) : rand(60,90);
+        this.ttl = (W + 100) / this.vx;
+      }
+      if (this.type === 'planet') {
+        this.r = rand(10,20);
+        const hue = Math.floor(rand(0,360));
+        this.color = `hsl(${hue},60%,60%)`;
+      }
+    }
+    update(dt){
+      this.ttl -= dt;
+      if (this.vx) this.x += this.vx * dt;
+    }
+    render(ctx){
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      switch(this.type){
+        case 'galaxy':
+          ctx.strokeStyle = 'rgba(200,200,255,0.7)';
+          for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(0,0,i*4,0,Math.PI*2); ctx.stroke(); }
+          break;
+        case 'nebula':
+          const g = ctx.createRadialGradient(0,0,0,0,0,40);
+          g.addColorStop(0,'rgba(255,200,255,0.6)');
+          g.addColorStop(1,'rgba(100,0,150,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(0,0,40,0,Math.PI*2); ctx.fill();
+          break;
+        case 'blackhole':
+          const r = this.giant ? 60 : 25;
+          ctx.fillStyle = '#000';
+          ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = '#444';
+          ctx.lineWidth = this.giant ? 8 : 4;
+          ctx.beginPath(); ctx.arc(0,0,r+7,0,Math.PI*2); ctx.stroke();
+          break;
+        case 'planet':
+          ctx.fillStyle = this.color;
+          ctx.beginPath(); ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+          ctx.lineWidth = 2; ctx.stroke();
+          break;
+        case 'comet':
+          ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(-40,0); ctx.lineTo(0,0); ctx.stroke();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(0,0,4,0,Math.PI*2); ctx.fill();
+          break;
+        case 'ufo':
+          ctx.fillStyle = '#bbb';
+          ctx.beginPath(); ctx.ellipse(0,0,15,6,0,0,Math.PI*2); ctx.fill();
+          ctx.fillStyle = 'rgba(150,255,150,0.7)';
+          ctx.beginPath(); ctx.arc(0,-4,8,0,Math.PI*2); ctx.fill();
+          break;
+      }
+      ctx.restore();
+    }
+    get alive(){ return this.ttl > 0; }
+  }
+
+  function clearEnemies(){
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
   }
 
   // Hazards / Enemies
   class Reptile {
     constructor() {
-      this.w = rand(28, 36);
-      this.h = rand(28, 40);
+      this.w = rand(40, 48);
+      this.h = rand(90, 110);
       this.x = W + this.w + 10;
       this.y = groundY();
-      this.speed = speed * rand(0.75, 1.05);
+      this.speed = speed * rand(0.75, 1.0);
       this.alive = true;
     }
     update(dt) {
       this.x -= this.speed * dt;
-      if (this.x < -60) this.alive = false;
+      if (this.x < -80) this.alive = false;
     }
     render(ctx) {
-      // pequeño reptiliano verde
+      // reptiliano alto humanoide
       ctx.fillStyle = '#2bbf66';
       ctx.save();
       ctx.translate(this.x, this.y);
+      // cuerpo
       ctx.beginPath();
-      ctx.roundRect(-this.w/2, -this.h, this.w, this.h*0.65, 6);
+      ctx.roundRect(-this.w*0.25, -this.h, this.w*0.5, this.h*0.6, 8);
       ctx.fill();
-      ctx.fillRect(-this.w*0.15, -this.h*0.35, this.w*0.3, this.h*0.35);
-      ctx.fillRect(this.w*0.1, -this.h*0.35, this.w*0.3, this.h*0.35);
+      // piernas
+      ctx.fillRect(-this.w*0.2, -this.h*0.4, this.w*0.15, this.h*0.4);
+      ctx.fillRect(this.w*0.05, -this.h*0.4, this.w*0.15, this.h*0.4);
+      // brazos
+      ctx.fillRect(-this.w*0.35, -this.h*0.75, this.w*0.1, this.h*0.35);
+      ctx.fillRect(this.w*0.25, -this.h*0.75, this.w*0.1, this.h*0.35);
       // cabeza
       ctx.beginPath();
-      ctx.ellipse(-this.w*0.05, -this.h*0.85, this.w*0.35, this.h*0.22, 0, 0, Math.PI*2);
+      ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
       ctx.fill();
-      // ojo
-      ctx.fillStyle = '#113f22';
+      // ojos reptilianos dobles
+      const eyeY = -this.h * 0.92;
+      const eyeW = this.w * 0.08;
+      const eyeH = this.h * 0.05;
+      const eyeOffset = this.w * 0.12;
+
+      // esclerótica blanca
+      ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.arc(this.w*0.05, -this.h*0.86, 3, 0, Math.PI*2);
+      ctx.ellipse(-eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // iris amarillos
+      ctx.fillStyle = '#ffd54f';
+      ctx.beginPath();
+      ctx.ellipse(-eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // pupilas verticales tipo línea
+      ctx.fillStyle = '#005d00';
+      const pupilW = eyeW * 0.1;
+      const pupilH = eyeH * 0.8;
+      ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
+      ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
+      // boca centrada con colmillos
+      const mouthY = -this.h * 0.86;
+      ctx.fillStyle = '#005d00';
+      ctx.beginPath();
+      ctx.arc(0, mouthY, this.w * 0.1, 0, Math.PI, false);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(-this.w * 0.04, mouthY);
+      ctx.lineTo(-this.w * 0.02, mouthY + this.h * 0.07);
+      ctx.lineTo(0, mouthY);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(this.w * 0.04, mouthY);
+      ctx.lineTo(this.w * 0.02, mouthY + this.h * 0.07);
+      ctx.lineTo(0, mouthY);
+      ctx.fill();
+      ctx.fillStyle = '#005d00';
+      // cola
+      ctx.beginPath();
+      ctx.moveTo(-this.w*0.25, -this.h*0.2);
+      ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.3, -this.w*0.7, -this.h*0.05);
+      ctx.quadraticCurveTo(-this.w*0.4, -this.h*0.15, -this.w*0.25, -this.h*0.1);
       ctx.fill();
       ctx.restore();
     }
-    bbox(){ return {x:this.x - this.w/2, y:this.y - this.h, w:this.w, h:this.h}; }
+    bbox(){ return {x:this.x - this.w*0.25, y:this.y - this.h, w:this.w*0.5, h:this.h}; }
   }
 
   class Angel {
@@ -299,37 +474,85 @@
       if (this.x < -80) this.alive = false;
     }
     fire() {
-      // Dispara misil dirigido al muslo derecho del jugador
-      const target = player.thigh();
-      missiles.push(new Missile(this.x, this.y, target.x, target.y));
+      // Dispara misil apuntado al jugador
+      const t = player.thigh();
+      const dx = t.x - this.x, dy = t.y - this.y;
+      const d = Math.hypot(dx, dy) || 1;
+      const spd = 260;
+      const vx = (dx / d) * spd;
+      const vy = (dy / d) * spd;
+      const homing = time >= 180 ? (missileHomingToggle = !missileHomingToggle) : false;
+      missiles.push(new Missile(this.x, this.y, vx, vy, homing));
       this.fired = true;
     }
     render(ctx) {
-      // silueta humanoide con alas
-      ctx.fillStyle = '#eaeefc';
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
       ctx.save();
       ctx.translate(this.x, this.y);
-      // cuerpo
-      ctx.beginPath();
-      ctx.roundRect(-this.w*0.3, -this.h*0.6, this.w*0.6, this.h*0.6, 8);
-      ctx.fill();
-      // cabeza
-      ctx.beginPath();
-      ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
-      ctx.fill();
-      // alas
-      ctx.globalAlpha = 0.9;
-      ctx.beginPath();
-      ctx.moveTo(-this.w*0.3, -this.h*0.45);
-      ctx.quadraticCurveTo(-this.w*1.0, -this.h*0.9, -this.w*0.3, -this.h*0.95);
-      ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.6, -this.w*0.3, -this.h*0.45);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(this.w*0.3, -this.h*0.45);
-      ctx.quadraticCurveTo(this.w*1.0, -this.h*0.9, this.w*0.3, -this.h*0.95);
-      ctx.quadraticCurveTo(this.w*0.6, -this.h*0.6, this.w*0.3, -this.h*0.45);
-      ctx.fill();
-      ctx.globalAlpha = 1;
+      if (chaos) {
+        ctx.fillStyle = '#ff3030';
+        // cuerpo
+        ctx.beginPath();
+        ctx.roundRect(-this.w*0.3, -this.h*0.6, this.w*0.6, this.h*0.6, 8);
+        ctx.fill();
+        // cabeza
+        ctx.beginPath();
+        ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
+        ctx.fill();
+        // cuernos grandes
+        ctx.beginPath();
+        ctx.moveTo(-6, -this.h*0.78); ctx.lineTo(-14, -this.h*1.05); ctx.lineTo(-2, -this.h*0.82); ctx.closePath();
+        ctx.moveTo(6, -this.h*0.78); ctx.lineTo(14, -this.h*1.05); ctx.lineTo(2, -this.h*0.82); ctx.closePath();
+        ctx.fill();
+        // cola de diablo
+        ctx.beginPath();
+        ctx.moveTo(this.w*0.3, -this.h*0.2);
+        ctx.quadraticCurveTo(this.w*0.6, 0, this.w*0.4, this.h*0.25);
+        ctx.lineTo(this.w*0.52, this.h*0.22);
+        ctx.lineTo(this.w*0.38, this.h*0.35);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        // silueta humanoide con alas
+        ctx.fillStyle = '#eaeefc';
+        // cuerpo
+        ctx.beginPath();
+        ctx.roundRect(-this.w*0.3, -this.h*0.6, this.w*0.6, this.h*0.6, 8);
+        ctx.fill();
+        // cabeza
+        ctx.beginPath();
+        ctx.arc(0, -this.h*0.75, 10, 0, Math.PI*2);
+        ctx.fill();
+        // alas más definidas
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = '#f8faff';
+        ctx.strokeStyle = '#d0d8ff';
+        const drawWing = (dir) => {
+          ctx.save();
+          ctx.scale(dir, 1);
+          ctx.beginPath();
+          ctx.moveTo(this.w * 0.3, -this.h * 0.45);
+          ctx.quadraticCurveTo(this.w * 0.9, -this.h * 0.9, this.w * 1.1, -this.h * 0.2);
+          ctx.quadraticCurveTo(this.w * 0.9, 0, this.w * 0.3, -this.h * 0.1);
+          ctx.closePath();
+          ctx.fill();
+          // plumas
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const fx = this.w * (0.6 + i * 0.15);
+            const fy = -this.h * (0.7 - i * 0.15);
+            const tx = this.w * (0.4 + i * 0.1);
+            const ty = -this.h * (0.15 - i * 0.03);
+            ctx.moveTo(this.w * 0.3, -this.h * 0.45);
+            ctx.quadraticCurveTo(fx, fy, tx, ty);
+          }
+          ctx.stroke();
+          ctx.restore();
+        };
+        drawWing(1);
+        drawWing(-1);
+        ctx.globalAlpha = 1;
+      }
       ctx.restore();
     }
   }
@@ -351,18 +574,32 @@
       // ojo con alas
       ctx.save();
       ctx.translate(this.x, this.y);
-      // alas
+      // alas más realistas
       ctx.fillStyle = '#f0f4ff';
-      ctx.beginPath();
-      ctx.moveTo(-50, 0);
-      ctx.quadraticCurveTo(-85, -25, -55, -35);
-      ctx.quadraticCurveTo(-75, -10, -50, 0);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(50, 0);
-      ctx.quadraticCurveTo(85, -25, 55, -35);
-      ctx.quadraticCurveTo(75, -10, 50, 0);
-      ctx.fill();
+      ctx.strokeStyle = '#d0d8ff';
+      const drawWing = (dir) => {
+        ctx.save();
+        ctx.scale(dir, 1);
+        ctx.beginPath();
+        ctx.moveTo(30, -10);
+        ctx.quadraticCurveTo(80, -40, 78, 20);
+        ctx.quadraticCurveTo(58, 10, 30, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        for (let i = 0; i < 3; i++) {
+          const fx = 60 + i * 12;
+          const fy = -25 - i * 5;
+          const tx = 40 + i * 8;
+          const ty = 5 + i * 6;
+          ctx.moveTo(30, -10);
+          ctx.quadraticCurveTo(fx, fy, tx, ty);
+        }
+        ctx.stroke();
+        ctx.restore();
+      };
+      drawWing(-1);
+      drawWing(1);
       // ojo
       ctx.fillStyle = '#cde1ff';
       ctx.beginPath();
@@ -378,25 +615,25 @@
   }
 
   class Missile {
-    constructor(x, y, tx, ty) {
+    constructor(x, y, vx, vy, homing = true) {
       this.x = x; this.y = y;
-      this.vx = -220; this.vy = 0;
-      this.speed = 260;
+      this.vx = vx; this.vy = vy;
+      this.speed = Math.hypot(vx, vy) || 260;
       this.alive = true;
-      this.targetBias = 0.9;
+      this.homing = homing;
     }
     update(dt) {
-      // guía hacia el muslo actual del jugador
-      const t = player.thigh();
-      const dx = t.x - this.x, dy = t.y - this.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const ux = dx/d, uy = dy/d;
-      // homing suave
-      this.vx = this.vx*0.9 + this.speed*ux*0.1;
-      this.vy = this.vy*0.9 + this.speed*uy*0.1;
-      this.x += this.vx*dt;
-      this.y += this.vy*dt;
-      if (this.x < -40 || this.x>W+40 || this.y< -40 || this.y>H+40) this.alive = false;
+      if (this.homing) {
+        const t = player.thigh();
+        const dx = t.x - this.x, dy = t.y - this.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const ux = dx / d, uy = dy / d;
+        this.vx = this.vx * 0.9 + this.speed * ux * 0.1;
+        this.vy = this.vy * 0.9 + this.speed * uy * 0.1;
+      }
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
+      if (this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
     render(ctx) {
       // misil simple
@@ -421,18 +658,24 @@
   class TriangleEye {
     constructor() {
       this.x = W + 50;
-      this.y = groundY() - 40 - rand(0, 40);
+      // Flota en el cielo en vez de desplazarse junto al jugador
+      this.y = rand(H * 0.15, H * 0.35);
       this.speed = speed * rand(0.5, 0.85);
       this.alive = true;
       this.aimTime = 0.4 + rand(0,0.25);
       this.fired = false;
-      this.laserY = this.y - 30; // se ajustará a altura de ojo
+      // objetivo dinámico del láser
+      this.targetX = player.x() + player.width()*0.3;
+      this.targetY = player.y - player.height()*0.4;
     }
     update(dt) {
       // si está cerca del jugador, frena para disparar
       if (!this.fired && this.x < W*0.55) {
         this.speed = Math.max(this.speed*0.92, 30);
         this.aimTime -= dt;
+        // apuntar continuamente al jugador
+        this.targetX = player.x() + player.width()*0.3;
+        this.targetY = player.y - player.height()*0.4;
         if (this.aimTime <= 0) this.fire();
       } else {
         this.x -= this.speed * dt;
@@ -440,10 +683,10 @@
       if (this.x < -60) this.alive = false;
     }
     fire() {
-      // Dispara un láser horizontal rojo a la altura actual del jugador (evitable saltando)
-      const py = player.y - player.height()*0.4;
-      this.laserY = py;
-      lasers.push(new Laser(this.x - 8, this.laserY));
+      // Dispara un láser rojo dirigido al jugador (evitable saltando)
+      const eyeX = this.x;
+      const eyeY = this.y - 6;
+      lasers.push(new Laser(eyeX, eyeY, this.targetX, this.targetY));
       this.fired = true;
       Audio.burstLaser();
     }
@@ -454,13 +697,28 @@
       ctx.fillStyle = '#f5e6a6';
       ctx.beginPath();
       ctx.moveTo(0, -32); ctx.lineTo(-28, 24); ctx.lineTo(28, 24); ctx.closePath(); ctx.fill();
-      // ojo
-      ctx.fillStyle = '#222';
-      ctx.beginPath();
-      ctx.ellipse(0, -6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#b20a0a';
-      ctx.beginPath();
-      ctx.arc(0, -6, 3.5, 0, Math.PI*2); ctx.fill();
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
+      if (chaos) {
+        ctx.fillStyle = '#f00';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#4aff4a';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 5, 5, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 1.5, 5, 0, 0, Math.PI*2); ctx.fill();
+      } else {
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(0, -6, 10, 6, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#6fa8dc'; // iris
+        ctx.beginPath();
+        ctx.arc(0, -6, 4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(0, -6, 2, 0, Math.PI*2); ctx.fill();
+      }
       ctx.restore();
       // línea de apuntado (si aún no dispara)
       if (!this.fired) {
@@ -469,8 +727,8 @@
         ctx.strokeStyle = '#ff8a8a';
         ctx.setLineDash([6,6]);
         ctx.beginPath();
-        ctx.moveTo(this.x-8, this.y-30);
-        ctx.lineTo(W, this.y-30);
+        ctx.moveTo(this.x, this.y-6);
+        ctx.lineTo(this.targetX, this.targetY);
         ctx.stroke();
         ctx.restore();
       }
@@ -479,29 +737,40 @@
   }
 
   class Laser {
-    constructor(x, y) {
+    constructor(x, y, tx, ty) {
       this.x = x; this.y = y;
+      const ang = Math.atan2(ty - y, tx - x);
+      const speed = 800;
+      this.vx = Math.cos(ang) * speed;
+      this.vy = Math.sin(ang) * speed;
+      this.prevX = x; this.prevY = y;
       this.alive = true;
-      this.ttl = 0.8; // duración del rayo
+      this.ttl = 1.5;
     }
     update(dt) {
+      this.prevX = this.x; this.prevY = this.y;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
       this.ttl -= dt;
-      if (this.ttl <= 0) this.alive = false;
+      if (this.ttl <= 0 || this.x < -50 || this.x > W+50 || this.y < -50 || this.y > H+50) this.alive = false;
     }
     render(ctx) {
-      // rayo horizontal rojo
       ctx.save();
       ctx.strokeStyle = 'rgba(255,0,0,.9)';
       ctx.lineWidth = 4;
       ctx.shadowColor = '#ff0000';
       ctx.shadowBlur = 8;
       ctx.beginPath();
-      ctx.moveTo(this.x, this.y);
-      ctx.lineTo(W, this.y);
+      ctx.moveTo(this.prevX, this.prevY);
+      ctx.lineTo(this.x, this.y);
       ctx.stroke();
       ctx.restore();
     }
-    bbox(){ return {x:this.x, y:this.y-2, w:W-this.x, h:4}; }
+    bbox(){
+      const minX = Math.min(this.prevX, this.x);
+      const minY = Math.min(this.prevY, this.y);
+      return {x:minX, y:minY, w:Math.abs(this.x - this.prevX), h:Math.abs(this.y - this.prevY)};
+    }
   }
 
   // Collisions
@@ -513,17 +782,40 @@
   }
 
   // Reset & Start
-  function resetAndStart(){
+  function resetAndStart(preserve=false){
     state = STATE.PLAY;
-    lives = livesBase;
-    livesEl.textContent = lives;
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
-    time = 0; startTs = performance.now()/1000; lastTs = startTs;
+    missileHomingToggle = false;
+    apocalypseTriggered = false;
+    nextCosmic = rand(12,20);
+    if (preserve) {
+      cycle++;
+      cycleStart = time;
+      startTs = performance.now()/1000 - time;
+      livesEl.textContent = lives;
+    } else {
+      lives = livesBase;
+      livesEl.textContent = lives;
+      time = 0;
+      cycleStart = 0;
+      cycle = 0;
+      startTs = performance.now()/1000;
+    }
+    lastTs = startTs;
     speed = 420;
-    nextReptile = 2; nextAngel = 6; nextEye = 10; nextTriangle = 35;
-    shieldUntil = 3; shieldActive = true; Audio.shield();
+    const ease = 1 + (240 - 0) / 240; // inicio más fácil
+    const diff = 1 + cycle * 0.15;
+    nextReptile = 2 * ease / diff;
+    nextAngel = 6 * ease / diff;
+    nextEye = 10 * ease / diff;
+    nextTriangle = rand(6.5,9.0) * ease / diff;
+    shieldUntil = time + 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
+  }
+
+  function startGame(){
+    resetAndStart();
   }
 
   function endGame(){
@@ -563,15 +855,24 @@
 
     time = ts - startTs;
     score = time;
+    const cycleTime = time - cycleStart;
 
-    // dificultad: aumenta velocidad lentamente; más fuerte a partir de 60s
-    const diffBoost = (time >= 60 ? 1.2 : 1.0);
-    speed = 420 * (1 + time*0.004) * diffBoost;
+    if (!apocalypseTriggered && cycleTime >= 115) {
+      apocalypseTriggered = true;
+      cosmics.push(new Cosmic('blackhole', true));
+      clearEnemies();
+      resetAndStart(true);
+      return;
+    }
 
-    // Wing boosts a los 60s, 120s, 180s (15s cada uno)
+    // dificultad: se mantiene estable hasta los 240s globales y luego aumenta
+    speed = 420 * (1 + Math.max(0, time - 240) * 0.004);
+    if (cycleTime >= 90 && cycleTime < 115 && !apocalypseTriggered) speed *= 1.4;
+
+    // Wing boosts a los 60s, 120s, 180s (15s cada uno) por ciclo
     const checkpoints = [60, 120, 180];
     for (let i=wingBoosts; i<checkpoints.length; i++) {
-      if (time >= checkpoints[i]) {
+      if (cycleTime >= checkpoints[i]) {
         wingBoosts++;
         wingActiveUntil = time + 15;
         player.extraWingJumps = 1; // recarga salto extra
@@ -587,32 +888,49 @@
   requestAnimationFrame(loop);
 
   function update(dt){
+    const cycleTime = time - cycleStart;
+    const chaos = cycleTime >= 90 && cycleTime < 115 && !apocalypseTriggered;
+    const difficulty = 1 + cycle * 0.15;
     // Spawns
-    nextReptile -= dt;
+    nextReptile -= dt * (chaos ? 2 : 1);
     if (nextReptile <= 0) {
       reptiles.push(new Reptile());
-      nextReptile = rand(1.6, 2.6) / (1 + time*0.003);
+      const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+      nextReptile = rand(1.6, 2.6) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.003));
     }
-    if (time >= 12) {
-      nextAngel -= dt;
+    if (cycleTime >= 12) {
+      nextAngel -= dt * (chaos ? 2 : 1);
       if (nextAngel <= 0) {
         angels.push(new Angel());
-        nextAngel = rand(4.5, 7.0) / (1 + time*0.002);
+        const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+        nextAngel = rand(4.5, 7.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
     }
-    if (time >= 18) {
-      nextEye -= dt;
+    if (cycleTime >= 18) {
+      nextEye -= dt * (chaos ? 2 : 1);
       if (nextEye <= 0) {
         eyes.push(new EyeAngel());
-        nextEye = rand(5.5, 9.5) / (1 + time*0.002);
+        const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+        nextEye = rand(5.5, 9.5) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
     }
-    if (time >= 30) {
-      nextTriangle -= dt;
+    if (cycleTime >= 36) {
+      nextTriangle -= dt * (chaos ? 2 : 1);
       if (nextTriangle <= 0) {
         triangles.push(new TriangleEye());
-        nextTriangle = rand(6.5, 9.0) / (1 + time*0.0025);
+        const early = 1 + Math.max(0, 240 - cycleTime) / 240;
+        nextTriangle = rand(6.5, 9.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.0025));
       }
+    }
+    nextCosmic -= dt;
+    if (nextCosmic <= 0) {
+      if (time >= 180 && Math.random() < 0.25) {
+        cosmics.push(new Cosmic('blackhole', true));
+        clearEnemies();
+      } else {
+        cosmics.push(new Cosmic());
+      }
+      nextCosmic = rand(12,20);
     }
 
     // Update entities
@@ -623,6 +941,7 @@
     triangles.forEach(o=>o.update(dt));
     missiles.forEach(o=>o.update(dt));
     lasers.forEach(o=>o.update(dt));
+    cosmics.forEach(o=>o.update(dt));
 
     // Collisions
     const pb = playerBBox();
@@ -643,12 +962,12 @@
 
     // Cleanup
     function aliveFilter(o){ return o.alive !== false; }
-    [reptiles, angels, eyes, triangles, missiles, lasers].forEach(list => {
+    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
 
     // HUD
-    hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives}`;
+    hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives} · Fase: ${cycle + 1}`;
     hud.speedPill.textContent = `Velocidad: ${(speed/420).toFixed(2)}x`;
     hud.wingPill.textContent = (time < wingActiveUntil) ? `Alas: ${(wingActiveUntil-time).toFixed(0)}s` : `Alas: —`;
   }
@@ -662,6 +981,8 @@
     grad.addColorStop(1,'#101a3a');
     ctx.fillStyle = grad;
     ctx.fillRect(0,0,W,H);
+    drawStars();
+    cosmics.forEach(o=>o.render(ctx));
 
     // Suelo
     ctx.fillStyle = '#0b1536';
@@ -686,9 +1007,10 @@
     player.render(ctx);
 
     // Mensajes situacionales
-    if (time < 3) {
+    const cycleTime = time - cycleStart;
+    if (cycleTime < 3) {
       drawTip(`ESCUDO INICIAL 3s`, player.x()+20, player.y - player.height() - 60);
-    } else if (Math.abs((time%60)-0) < 0.2 && time>59.5 && time<61) {
+    } else if (Math.abs((cycleTime%60)-0) < 0.2 && cycleTime>59.5 && cycleTime<61) {
       drawTip(`¡ALAS ACTIVADAS!`, player.x()+20, player.y - player.height() - 60);
     }
   }

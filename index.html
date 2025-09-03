@@ -2,9 +2,14 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Runner: Ángeles y Sombras</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" sizes="192x192" href="/logo.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/logo.png">
+  <meta name="theme-color" content="#0a0a23">
 </head>
 <body>
   <canvas id="game"></canvas>
@@ -13,13 +18,15 @@
     <p class="subtitle">Evita misiles, rayos y reptilianos. Sobrevive el mayor tiempo posible.</p>
     <div class="stats">
       <div>Récord: <span id="best">0.0</span>s</div>
-      <div>Vidas: <span id="lives">3</span></div>
+      <div>Vidas: <span id="lives">10</span></div>
     </div>
     <div class="controls">
       <p><strong>Espacio/↑</strong> para saltar · <strong>M</strong> silenciar · <strong>R</strong> reiniciar</p>
     </div>
     <button id="startBtn">Empezar (Espacio)</button>
   </div>
+  <div id="rotateOverlay">Gira tu teléfono para jugar en horizontal 📲</div>
+  <button id="jumpBtn" class="jump-btn">SALTAR ⤴</button>
   <script src="game.js"></script>
 </body>
 </html>

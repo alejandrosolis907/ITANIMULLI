@@ -8,7 +8,7 @@ Pequeño juego tipo *runner* hecho en HTML5 Canvas, inspirado en la idea de un c
 - **R**: reiniciar cuando no estás en partida.
 
 ## Mecánicas
-- Comienzas con **3 vidas** y un **escudo inicial de 3 s** (representado por una Estrella de David).
+- Comienzas con **10 vidas** y un **escudo inicial de 3 s** (representado por una Estrella de David).
 - Sobrevive el mayor tiempo posible; tu **puntaje** es el tiempo en segundos. Se guarda **récord** en `localStorage`.
 - **Desde 30 s** aparecerán **triángulos con un ojo** que disparan **rayos rojos** a la altura del jugador (evítalos saltando).
 - **Desde 60 s** la dificultad aumenta un poco más y cada **60 s (60/120/180)** recibes **alas durante 15 s** que desbloquean un salto extra temporal.
