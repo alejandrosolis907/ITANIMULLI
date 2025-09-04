@@ -10,7 +10,7 @@
   const livesEl = document.getElementById('lives');
   const jumpBtn = document.getElementById('jumpBtn');
   const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
-  const SCALE = isTouchDevice ? 0.8 : 1;
+  const SCALE = isTouchDevice ? 0.7 : 1;
 
   let W = 0, H = 0;
   function resizeCanvas() {
