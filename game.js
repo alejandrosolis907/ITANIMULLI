@@ -88,15 +88,23 @@
     ctx.fillStyle = grad;
     ctx.fillRect(0, gY, W, H - gY);
     ctx.fillStyle = '#3b2b44';
-    const spacing = 40;
+    const spacing = 60;
     const offset = (time * speed) % spacing;
-    for (let x = -offset; x < W; x += spacing) {
-      const h = 6 + 4 * Math.sin((x + time * 50) * 0.1);
-      ctx.beginPath();
-      ctx.moveTo(x, gY);
-      ctx.lineTo(x + spacing / 2, gY - h);
-      ctx.lineTo(x + spacing, gY);
-      ctx.fill();
+    const baseIndex = Math.floor((time * speed) / spacing);
+    let prevDrawn = false;
+    for (let x = -offset, i = 0; x < W; x += spacing, i++) {
+      const idx = baseIndex + i;
+      const rnd = Math.abs(Math.sin(idx * 12.9898) * 43758.5453) % 1;
+      const shouldDraw = rnd > 0.7 && !prevDrawn;
+      if (shouldDraw) {
+        ctx.beginPath();
+        ctx.moveTo(x, gY);
+        ctx.lineTo(x + spacing / 2, gY - 20);
+        ctx.lineTo(x + spacing, gY);
+        ctx.closePath();
+        ctx.fill();
+      }
+      prevDrawn = shouldDraw;
     }
     ctx.fillStyle = '#4b3659';
     ctx.fillRect(0, gY - 2, W, 2);
