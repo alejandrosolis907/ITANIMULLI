@@ -79,31 +79,9 @@
     ctx.restore();
   }
 
-  function drawMountains(ctx) {
-    const gY = groundY();
-    const speedFactor = 0.2;
-    const spacing = 120;
-    const offset = (time * speed * speedFactor) % spacing;
-    const baseIndex = Math.floor((time * speed * speedFactor) / spacing);
-    ctx.fillStyle = '#2a143a';
-    ctx.beginPath();
-    ctx.moveTo(-offset, gY);
-    for (let x = -offset, i = 0; x < W + spacing; x += spacing, i++) {
-      const idx = baseIndex + i;
-      const rnd = Math.abs(Math.sin(idx * 13.13) * 43758.5453) % 1;
-      const peakY = gY - 40 - rnd * 20;
-      ctx.quadraticCurveTo(x + spacing / 2, peakY, x + spacing, gY);
-    }
-    ctx.lineTo(W + spacing, H);
-    ctx.lineTo(-offset, H);
-    ctx.closePath();
-    ctx.fill();
-  }
-
   function drawRockyGround(ctx) {
     ctx.save();
     const gY = groundY();
-    drawMountains(ctx);
     const grad = ctx.createLinearGradient(0, gY, 0, H);
     grad.addColorStop(0, '#302138');
     grad.addColorStop(1, '#1e142a');
