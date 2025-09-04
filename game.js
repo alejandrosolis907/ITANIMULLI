@@ -79,6 +79,47 @@
     ctx.restore();
   }
 
+  function drawMountains(ctx) {
+    ctx.save();
+    const baseY = groundY();
+    ctx.fillStyle = '#2a1637';
+    const spacing = 160;
+    const offset = (time * speed * 0.2) % spacing;
+    for (let x = -offset; x < W; x += spacing) {
+      const peak = baseY - 60 - 40 * Math.sin((x + time * 20) * 0.01);
+      ctx.beginPath();
+      ctx.moveTo(x, baseY);
+      ctx.lineTo(x + spacing / 2, peak);
+      ctx.lineTo(x + spacing, baseY);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawRockyGround(ctx) {
+    ctx.save();
+    const gY = groundY();
+    const grad = ctx.createLinearGradient(0, gY, 0, H);
+    grad.addColorStop(0, '#302138');
+    grad.addColorStop(1, '#1e142a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, gY, W, H - gY);
+    ctx.fillStyle = '#3b2b44';
+    const spacing = 40;
+    const offset = (time * speed) % spacing;
+    for (let x = -offset; x < W; x += spacing) {
+      const h = 6 + 4 * Math.sin((x + time * 50) * 0.1);
+      ctx.beginPath();
+      ctx.moveTo(x, gY);
+      ctx.lineTo(x + spacing / 2, gY - h);
+      ctx.lineTo(x + spacing, gY);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#4b3659';
+    ctx.fillRect(0, gY - 2, W, 2);
+    ctx.restore();
+  }
+
   // -------- Audio (simple WebAudio beeps)
   const Audio = (() => {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1118,14 +1159,10 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0,0,W,H);
       drawStars();
+      drawMountains(ctx);
       drawSaturn(ctx, W*0.18, H*0.22, 40);
       cosmics.forEach(o=>o.render(ctx));
-      // Suelo místico
-      ctx.fillStyle = '#302138';
-      ctx.fillRect(0, groundY(), W, H-groundY());
-      // Borde superior del camino onírico
-      ctx.fillStyle = '#4b3659';
-      ctx.fillRect(0, groundY()-2, W, 2);
+      drawRockyGround(ctx);
       // partículas flotantes
       ctx.fillStyle = 'rgba(255,255,255,0.25)';
       particulasOniricas.forEach(p => {
