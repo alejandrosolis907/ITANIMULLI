@@ -44,6 +44,41 @@
     });
   }
 
+  function drawMoon(ctx, x, y, r) {
+    ctx.save();
+    const grad = ctx.createRadialGradient(x - r*0.3, y - r*0.3, r*0.2, x, y, r);
+    grad.addColorStop(0, '#fff');
+    grad.addColorStop(1, '#b0b8d9');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#9fa8c6';
+    ctx.beginPath();
+    ctx.arc(x - r*0.35, y - r*0.15, r*0.2, 0, Math.PI*2);
+    ctx.arc(x + r*0.25, y + r*0.1, r*0.15, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawSaturn(ctx, x, y, r) {
+    ctx.save();
+    ctx.translate(x, y);
+    const grad = ctx.createRadialGradient(-r*0.3, -r*0.3, r*0.2, 0, 0, r);
+    grad.addColorStop(0, '#f6d7a7');
+    grad.addColorStop(1, '#c59b6d');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(200,200,220,0.8)';
+    ctx.lineWidth = r * 0.4;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 1.6, r * 0.6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // -------- Audio (simple WebAudio beeps)
   const Audio = (() => {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -327,8 +362,19 @@
       ctx.translate(this.x, this.y);
       switch(this.type){
         case 'galaxy':
-          ctx.strokeStyle = 'rgba(200,200,255,0.7)';
-          for(let i=0;i<6;i++){ ctx.beginPath(); ctx.arc(0,0,i*4,0,Math.PI*2); ctx.stroke(); }
+          ctx.strokeStyle = 'rgba(200,200,255,0.6)';
+          ctx.lineWidth = 1.5;
+          for (let arm = 0; arm < 4; arm++) {
+            ctx.beginPath();
+            for (let t = 0; t < Math.PI * 2; t += 0.2) {
+              const rad = t * 2;
+              const ang = t + arm * (Math.PI / 2);
+              ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+            }
+            ctx.stroke();
+          }
+          ctx.fillStyle = '#fff';
+          ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
           break;
         case 'nebula':
           const g = ctx.createRadialGradient(0,0,0,0,0,40);
@@ -340,10 +386,19 @@
         case 'blackhole':
           const r = this.giant ? 60 : 25;
           ctx.fillStyle = '#000';
-          ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
-          ctx.strokeStyle = '#444';
+          ctx.beginPath();
+          ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
+          const glow = ctx.createRadialGradient(0,0,r,0,0,r + (this.giant ? 30 : 15));
+          glow.addColorStop(0,'rgba(0,0,0,0)');
+          glow.addColorStop(0.6,'rgba(0,80,200,0.7)');
+          glow.addColorStop(1,'rgba(0,0,0,0)');
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(0,0,r + (this.giant ? 30 : 15),0,Math.PI*2);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0,120,255,0.9)';
           ctx.lineWidth = this.giant ? 8 : 4;
-          ctx.beginPath(); ctx.arc(0,0,r+7,0,Math.PI*2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0,0,r + (this.giant ? 8 : 4),0,Math.PI*2); ctx.stroke();
           break;
         case 'planet':
           ctx.fillStyle = this.color;
@@ -1038,6 +1093,7 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0,0,W,H);
       drawStars();
+      drawMoon(ctx, W*0.8, H*0.22, 40);
       cosmics.forEach(o=>o.render(ctx));
       // Suelo carretera
       ctx.fillStyle = '#2C2C2C';
@@ -1062,6 +1118,7 @@
       ctx.fillStyle = grad;
       ctx.fillRect(0,0,W,H);
       drawStars();
+      drawSaturn(ctx, W*0.18, H*0.22, 40);
       cosmics.forEach(o=>o.render(ctx));
       // Suelo místico
       ctx.fillStyle = '#302138';
