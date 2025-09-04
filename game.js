@@ -1042,12 +1042,13 @@
       // Suelo carretera
       ctx.fillStyle = '#2C2C2C';
       ctx.fillRect(0, groundY(), W, H-groundY());
+      const roadCenterY = groundY() + (H - groundY()) / 2;
       ctx.strokeStyle = '#FFDD00';
       ctx.lineWidth = 4;
       ctx.beginPath();
       for (let x = -((time*speed)%120); x < W; x += 60) {
-        ctx.moveTo(x, groundY()+20);
-        ctx.lineTo(x+30, groundY()+20);
+        ctx.moveTo(x, roadCenterY);
+        ctx.lineTo(x+30, roadCenterY);
       }
       ctx.stroke();
     } else {
