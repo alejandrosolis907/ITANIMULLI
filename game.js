@@ -1031,16 +1031,14 @@
     if (cycle === 0) {
       ctx.fillStyle = '#2C2C2C';
       ctx.fillRect(0, groundY(), W, H-groundY());
-      ctx.strokeStyle = '#FFDD00';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([40,40]);
-      ctx.beginPath();
-      for (let x = -(time*speed)%80; x < W; x += 80) {
-        ctx.moveTo(x, groundY()+2);
-        ctx.lineTo(x+40, groundY()+2);
+      const laneY = groundY() + (H - groundY()) / 2;
+      const dashLen = 40;
+      const gap = 40;
+      const offset = -(time * speed) % (dashLen + gap);
+      ctx.fillStyle = '#FFDD00';
+      for (let x = offset; x < W; x += dashLen + gap) {
+        ctx.fillRect(x, laneY - 4, dashLen, 8);
       }
-      ctx.stroke();
-      ctx.setLineDash([]);
     } else {
       ctx.fillStyle = '#302138';
       ctx.fillRect(0, groundY(), W, H-groundY());
