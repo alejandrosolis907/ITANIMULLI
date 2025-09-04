@@ -1,4 +1,4 @@
-// Runner: Ángeles y Sombras
+// ITANIMULLI
 // Hecho por ChatGPT para Alejandro — HTML5 Canvas, sin dependencias externas.
 
 (() => {
@@ -1034,6 +1034,6 @@
 
   // Mostrar menú al cargar
   overlay.style.display = 'flex';
-  overlay.querySelector('h1').textContent = 'RUNNER: ÁNGELES Y SOMBRAS';
+  overlay.querySelector('h1').textContent = 'ITANIMULLI';
   overlay.querySelector('.subtitle').textContent = 'Evita misiles, rayos y reptilianos. Sobrevive el mayor tiempo posible.';
 })();
