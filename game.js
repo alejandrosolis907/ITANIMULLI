@@ -12,6 +12,10 @@
   const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
   const SCALE = isTouchDevice ? 0.8 : 1;
 
+  // Control de ciclos del juego
+  let cycleStart = 0;
+  let cycle = 0;
+
   let W = 0, H = 0;
   function resizeCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -97,8 +101,6 @@
   const cosmics = [];
   let missileHomingToggle = false;
   let apocalypseTriggered = false;
-  let cycleStart = 0;
-  let cycle = 0;
 
 
   // Spawners control
