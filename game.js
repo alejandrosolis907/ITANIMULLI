@@ -20,16 +20,23 @@
     ctx.setTransform(dpr * SCALE, 0, 0, dpr * SCALE, 0, 0);
     W = canvas.width / (dpr * SCALE);
     H = canvas.height / (dpr * SCALE);
+    if (cycle === 1) initDreamEnv();
   }
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
 
-  // Estrellas de fondo
+  // Estrellas de fondo del ciclo arcade
   const stars = Array.from({ length: 100 }, () => ({
     x: Math.random(),
     y: Math.random(),
     r: Math.random() * 1.5 + 0.5
   }));
+
+  // Elementos del ciclo onírico
+  const dreamStars = [];
+  const dreamGalaxies = [];
+  const dreamGround = { cracks: [], glows: [] };
+  let dreamMoon = null;
 
   // -------- Utils
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -42,6 +49,96 @@
       ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
       ctx.fill();
     });
+  }
+
+  function createGalaxyImage(){
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 128;
+    const g = cvs.getContext('2d');
+    g.translate(64,64);
+    for(let i=0;i<6;i++){
+      g.rotate(Math.PI/3);
+      g.strokeStyle = 'rgba(220,220,255,0.3)';
+      g.beginPath();
+      g.moveTo(0,0);
+      g.quadraticCurveTo(50,10,60,0);
+      g.stroke();
+    }
+    const grad = g.createRadialGradient(0,0,0,0,0,20);
+    grad.addColorStop(0,'rgba(255,255,255,0.8)');
+    grad.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(0,0,20,0,Math.PI*2);
+    g.fill();
+    return cvs;
+  }
+
+  function createNebulaImage(){
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 128;
+    const g = cvs.getContext('2d');
+    const grad = g.createRadialGradient(64,64,10,64,64,60);
+    grad.addColorStop(0,'rgba(160,120,255,0.8)');
+    grad.addColorStop(1,'rgba(60,20,120,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(64,64,60,0,Math.PI*2);
+    g.fill();
+    return cvs;
+  }
+
+  function createMoonImage(){
+    const cvs = document.createElement('canvas');
+    cvs.width = cvs.height = 120;
+    const g = cvs.getContext('2d');
+    const grad = g.createRadialGradient(60,60,0,60,60,60);
+    grad.addColorStop(0,'rgba(180,200,255,0.8)');
+    grad.addColorStop(1,'rgba(180,200,255,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(60,60,50,0,Math.PI*2);
+    g.fill();
+    return cvs;
+  }
+
+  function generateCrack(){
+    const baseY = groundY();
+    const length = rand(80,160);
+    const x = rand(0, W - length);
+    const ctrlX = x + length/2;
+    const ctrlY = baseY + rand(-25,25);
+    return { x1:x, x2:x+length, cx:ctrlX, cy:ctrlY };
+  }
+
+  function initDreamEnv(){
+    dreamStars.length = 0;
+    const clusters = [
+      {cx:0.2, cy:0.25, count:20},
+      {cx:0.7, cy:0.15, count:25},
+      {cx:0.5, cy:0.35, count:15}
+    ];
+    clusters.forEach(c => {
+      for(let i=0;i<c.count;i++){
+        dreamStars.push({
+          x: c.cx + rand(-0.05,0.05),
+          y: c.cy + rand(-0.05,0.05),
+          r: rand(1,2),
+          phase: rand(0,Math.PI*2)
+        });
+      }
+    });
+
+    dreamGalaxies.length = 0;
+    dreamGalaxies.push({ img: createGalaxyImage(), x: W*0.8, y: H*0.2, s:1 });
+    dreamGalaxies.push({ img: createNebulaImage(), x: W*0.25, y: H*0.3, s:1 });
+
+    dreamMoon = { img: createMoonImage(), x: W*0.6, y: H*0.12, s:1.8 };
+
+    dreamGround.cracks = [];
+    for(let i=0;i<5;i++) dreamGround.cracks.push(generateCrack());
+    dreamGround.glows = [];
+    for(let i=0;i<8;i++) dreamGround.glows.push({ x: rand(0,W), y: groundY() - rand(5,20), r: rand(6,12) });
   }
 
   // -------- Audio (simple WebAudio beeps)
@@ -825,6 +922,7 @@
       cycleStart = time;
       startTs = performance.now()/1000 - time;
       livesEl.textContent = lives;
+      if (cycle === 1) initDreamEnv();
     } else {
       lives = livesBase;
       livesEl.textContent = lives;
@@ -832,6 +930,11 @@
       cycleStart = 0;
       cycle = 0;
       startTs = performance.now()/1000;
+      dreamStars.length = 0;
+      dreamGalaxies.length = 0;
+      dreamGround.cracks = [];
+      dreamGround.glows = [];
+      dreamMoon = null;
     }
     lastTs = startTs;
     speed = 420;
@@ -972,13 +1075,14 @@
     cosmics.forEach(o=>o.update(dt));
 
     if (cycle === 1) {
-      if (Math.random() < dt * 20) dreamParticles.push({ x: rand(0, W), y: groundY(), r: rand(1,3), a: 1 });
+      if (Math.random() < dt * 25) dreamParticles.push({ x: rand(0, W), y: groundY(), r: rand(1,3), a: 1, shape: Math.random()<0.5?'circle':'square', vy: rand(10,30) });
       for (let i = dreamParticles.length - 1; i >= 0; i--) {
         const p = dreamParticles[i];
-        p.y -= 20 * dt;
-        p.a -= 0.3 * dt;
+        p.y -= p.vy * dt;
+        p.a -= 0.25 * dt;
         if (p.a <= 0) dreamParticles.splice(i, 1);
       }
+      dreamStars.forEach(s => s.phase += dt * 0.5);
     }
 
     // Collisions
@@ -1021,10 +1125,29 @@
       drawStars();
     } else {
       const grad = ctx.createLinearGradient(0,0,0,H);
-      grad.addColorStop(0,'#1a1025');
-      grad.addColorStop(1,'#4b2b60');
+      grad.addColorStop(0,'#302138');
+      grad.addColorStop(1,'#191942');
       ctx.fillStyle = grad;
       ctx.fillRect(0,0,W,H);
+      dreamStars.forEach(s => {
+        const alpha = 0.7 + Math.sin(s.phase) * 0.3;
+        ctx.fillStyle = `rgba(200,220,255,${alpha})`;
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI*2);
+        ctx.fill();
+      });
+      dreamGalaxies.forEach(g => {
+        const w = g.img.width * g.s;
+        const h = g.img.height * g.s;
+        ctx.drawImage(g.img, g.x - w/2, g.y - h/2, w, h);
+      });
+      if (dreamMoon) {
+        const w = dreamMoon.img.width * dreamMoon.s;
+        const h = dreamMoon.img.height * dreamMoon.s;
+        ctx.globalAlpha = 0.8;
+        ctx.drawImage(dreamMoon.img, dreamMoon.x - w/2, dreamMoon.y - h/2, w, h);
+        ctx.globalAlpha = 1;
+      }
     }
     cosmics.forEach(o=>o.render(ctx));
 
@@ -1042,13 +1165,37 @@
     } else {
       ctx.fillStyle = '#302138';
       ctx.fillRect(0, groundY(), W, H-groundY());
+
+      ctx.strokeStyle = '#3e2748';
+      ctx.lineWidth = 2;
+      dreamGround.cracks.forEach(c => {
+        ctx.beginPath();
+        ctx.moveTo(c.x1, groundY());
+        ctx.quadraticCurveTo(c.cx, c.cy, c.x2, groundY());
+        ctx.stroke();
+      });
+
+      dreamGround.glows.forEach(g => {
+        const grad = ctx.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
+        grad.addColorStop(0,'rgba(200,120,255,0.6)');
+        grad.addColorStop(1,'rgba(200,120,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(g.x,g.y,g.r,0,Math.PI*2);
+        ctx.fill();
+      });
+
       dreamParticles.forEach(p => {
         ctx.save();
         ctx.globalAlpha = p.a;
         ctx.fillStyle = '#d9c8ff';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
-        ctx.fill();
+        if (p.shape === 'square') {
+          ctx.fillRect(p.x - p.r, p.y - p.r, p.r*2, p.r*2);
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+          ctx.fill();
+        }
         ctx.restore();
       });
     }

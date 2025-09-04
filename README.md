@@ -17,7 +17,7 @@ Pequeño juego tipo *runner* hecho en HTML5 Canvas, inspirado en la idea de un c
 
 ## Ciclos y transición
 - El juego inicia en una carretera arcade con suelo gris y líneas amarillas.
-- Al completar el primer ciclo, un **agujero negro** absorbe a los enemigos y da paso a un segundo entorno onírico con suelo púrpura y partículas flotantes.
+- Al completar el primer ciclo, un **agujero negro** absorbe a los enemigos y da paso a un segundo entorno onírico: cielo en degradado violeta-azul con galaxias y una luna alienígena, suelo púrpura con grietas luminosas y partículas que flotan hacia arriba.
 
 ## Ejecutar
 Basta con abrir `index.html` en cualquier navegador moderno (Chrome/Edge/Firefox/Safari). No requiere servidor ni recursos externos.
