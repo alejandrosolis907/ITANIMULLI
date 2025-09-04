@@ -20,6 +20,7 @@
     ctx.setTransform(dpr * SCALE, 0, 0, dpr * SCALE, 0, 0);
     W = canvas.width / (dpr * SCALE);
     H = canvas.height / (dpr * SCALE);
+    if (Bg && Bg.initBackgroundLayers) Bg.initBackgroundLayers(canvas);
   }
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
@@ -123,6 +124,7 @@
   const STATE = { MENU:0, PLAY:1, OVER:2 };
   let state = STATE.MENU;
   let time = 0, startTs = 0, lastTs = 0, speed = 400; // px/s base ground speed
+  window._gameSpeed = () => speed;
   let groundY = () => H*0.82;
   let score = 0, best = parseFloat(localStorage.getItem('runnerHighScore') || '0') || 0;
   bestEl.textContent = best.toFixed(1);
@@ -983,6 +985,7 @@
   requestAnimationFrame(loop);
 
   function update(dt){
+    Bg.updateBackground(dt);
     if (enTransicion) {
       progresoTransicion += dt;
       const cx = W/2, cy = H/2;
@@ -1108,21 +1111,6 @@
       drawStars();
       drawMoon(ctx, W*0.8, H*0.22, 40);
       cosmics.forEach(o=>o.render(ctx));
-      // Suelo carretera
-      ctx.fillStyle = '#2C2C2C';
-      ctx.fillRect(0, groundY(), W, H-groundY());
-      // Borde superior del camino
-      ctx.fillStyle = '#444444';
-      ctx.fillRect(0, groundY()-2, W, 2);
-      const roadCenterY = groundY() + (H - groundY()) / 2;
-      ctx.strokeStyle = '#FFDD00';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      for (let x = -((time*speed)%120); x < W; x += 60) {
-        ctx.moveTo(x, roadCenterY);
-        ctx.lineTo(x+30, roadCenterY);
-      }
-      ctx.stroke();
     } else {
       // Cielo onírico
       const grad = ctx.createLinearGradient(0,0,0,H);
@@ -1133,7 +1121,12 @@
       drawStars();
       drawSaturn(ctx, W*0.18, H*0.22, 40);
       cosmics.forEach(o=>o.render(ctx));
-      drawRockyGround(ctx);
+    }
+
+    Bg.drawParallax(ctx);
+    Bg.drawGround(ctx);
+
+    if (cicloActual !== 0) {
       // partículas flotantes
       ctx.fillStyle = 'rgba(255,255,255,0.25)';
       particulasOniricas.forEach(p => {
