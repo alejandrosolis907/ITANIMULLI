@@ -1042,6 +1042,9 @@
       // Suelo carretera
       ctx.fillStyle = '#2C2C2C';
       ctx.fillRect(0, groundY(), W, H-groundY());
+      // Borde superior del camino
+      ctx.fillStyle = '#444444';
+      ctx.fillRect(0, groundY()-2, W, 2);
       const roadCenterY = groundY() + (H - groundY()) / 2;
       ctx.strokeStyle = '#FFDD00';
       ctx.lineWidth = 4;
@@ -1063,6 +1066,9 @@
       // Suelo místico
       ctx.fillStyle = '#302138';
       ctx.fillRect(0, groundY(), W, H-groundY());
+      // Borde superior del camino onírico
+      ctx.fillStyle = '#4b3659';
+      ctx.fillRect(0, groundY()-2, W, 2);
       // partículas flotantes
       ctx.fillStyle = 'rgba(255,255,255,0.25)';
       particulasOniricas.forEach(p => {
