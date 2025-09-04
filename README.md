@@ -1,4 +1,4 @@
-# Runner: Ángeles y Sombras
+# ITANIMULLI
 
 Pequeño juego tipo *runner* hecho en HTML5 Canvas, inspirado en la idea de un corredor que evita enemigos (reptilianos, ángeles y triángulos con ojo) al estilo sencillo del dinosaurio de Google.
 
@@ -14,6 +14,10 @@ Pequeño juego tipo *runner* hecho en HTML5 Canvas, inspirado en la idea de un c
 - **Desde 60 s** la dificultad aumenta un poco más y cada **60 s (60/120/180)** recibes **alas durante 15 s** que desbloquean un salto extra temporal.
 - **Ángeles** disparan **misiles dirigidos al muslo derecho** del jugador; los **ojos con alas** hacen daño por contacto.
 - **Reptilianos** corren por el suelo en dirección opuesta. Cualquier contacto con **misil/ láser/ ojo con alas/ reptiliano** te hace perder una vida.
+
+## Ciclos y transición
+- El juego inicia en una carretera arcade con suelo gris y líneas amarillas.
+- Al completar el primer ciclo, un **agujero negro** absorbe a los enemigos y da paso a un segundo entorno onírico con suelo púrpura y partículas flotantes.
 
 ## Ejecutar
 Basta con abrir `index.html` en cualquier navegador moderno (Chrome/Edge/Firefox/Safari). No requiere servidor ni recursos externos.

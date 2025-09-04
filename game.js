@@ -1,4 +1,4 @@
-// Runner: Ángeles y Sombras
+// ITANIMULLI
 // Hecho por ChatGPT para Alejandro — HTML5 Canvas, sin dependencias externas.
 
 (() => {
@@ -10,15 +10,16 @@
   const livesEl = document.getElementById('lives');
   const jumpBtn = document.getElementById('jumpBtn');
   const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+  const SCALE = isTouchDevice ? 0.8 : 1;
 
   let W = 0, H = 0;
   function resizeCanvas() {
     const dpr = Math.max(1, window.devicePixelRatio || 1);
     canvas.width = Math.floor(window.innerWidth * dpr);
     canvas.height = Math.floor(window.innerHeight * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    W = canvas.width / dpr;
-    H = canvas.height / dpr;
+    ctx.setTransform(dpr * SCALE, 0, 0, dpr * SCALE, 0, 0);
+    W = canvas.width / (dpr * SCALE);
+    H = canvas.height / (dpr * SCALE);
   }
   window.addEventListener('resize', resizeCanvas);
   resizeCanvas();
@@ -94,10 +95,12 @@
   const angels = [];
   const eyes = [];
   const cosmics = [];
+  const dreamParticles = [];
   let missileHomingToggle = false;
-  let apocalypseTriggered = false;
   let cycleStart = 0;
   let cycle = 0;
+  let transitioning = false;
+  const blackHole = { active: false, x: 0, y: 0, r: 0 };
 
 
   // Spawners control
@@ -365,6 +368,32 @@
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
   }
 
+  function transicionCiclo(){
+    transitioning = true;
+    blackHole.active = true;
+    blackHole.x = W/2;
+    blackHole.y = H/2;
+    blackHole.r = 10;
+  }
+
+  function updateTransition(dt){
+    if (!blackHole.active) return;
+    blackHole.r += 200 * dt;
+    const lists = [reptiles, angels, eyes, triangles, missiles, lasers];
+    lists.forEach(list => list.forEach(e => {
+      const dx = blackHole.x - e.x;
+      const dy = blackHole.y - e.y;
+      e.x += dx * dt * 2;
+      e.y += dy * dt * 2;
+    }));
+    if (blackHole.r > Math.max(W,H)) {
+      clearEnemies();
+      resetAndStart(true);
+      transitioning = false;
+      blackHole.active = false;
+    }
+  }
+
   // Hazards / Enemies
   class Reptile {
     constructor() {
@@ -486,7 +515,7 @@
       this.fired = true;
     }
     render(ctx) {
-      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !transitioning;
       ctx.save();
       ctx.translate(this.x, this.y);
       if (chaos) {
@@ -697,7 +726,7 @@
       ctx.fillStyle = '#f5e6a6';
       ctx.beginPath();
       ctx.moveTo(0, -32); ctx.lineTo(-28, 24); ctx.lineTo(28, 24); ctx.closePath(); ctx.fill();
-      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !transitioning;
       if (chaos) {
         ctx.fillStyle = '#f00';
         ctx.beginPath();
@@ -785,8 +814,11 @@
   function resetAndStart(preserve=false){
     state = STATE.PLAY;
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+    cosmics.length = 0;
+    dreamParticles.length = 0;
     missileHomingToggle = false;
-    apocalypseTriggered = false;
+    transitioning = false;
+    blackHole.active = false;
     nextCosmic = rand(12,20);
     if (preserve) {
       cycle++;
@@ -856,18 +888,13 @@
     time = ts - startTs;
     score = time;
     const cycleTime = time - cycleStart;
-
-    if (!apocalypseTriggered && cycleTime >= 115) {
-      apocalypseTriggered = true;
-      cosmics.push(new Cosmic('blackhole', true));
-      clearEnemies();
-      resetAndStart(true);
-      return;
+    if (!transitioning && cycle === 0 && cycleTime >= 115) {
+      transicionCiclo();
     }
 
     // dificultad: se mantiene estable hasta los 240s globales y luego aumenta
     speed = 420 * (1 + Math.max(0, time - 240) * 0.004);
-    if (cycleTime >= 90 && cycleTime < 115 && !apocalypseTriggered) speed *= 1.4;
+    if (cycle === 0 && cycleTime >= 90 && cycleTime < 115 && !transitioning) speed *= 1.4;
 
     // Wing boosts a los 60s, 120s, 180s (15s cada uno) por ciclo
     const checkpoints = [60, 120, 180];
@@ -888,8 +915,9 @@
   requestAnimationFrame(loop);
 
   function update(dt){
+    if (transitioning) { updateTransition(dt); return; }
     const cycleTime = time - cycleStart;
-    const chaos = cycleTime >= 90 && cycleTime < 115 && !apocalypseTriggered;
+    const chaos = cycle === 0 && cycleTime >= 90 && cycleTime < 115 && !transitioning;
     const difficulty = 1 + cycle * 0.15;
     // Spawns
     nextReptile -= dt * (chaos ? 2 : 1);
@@ -943,6 +971,16 @@
     lasers.forEach(o=>o.update(dt));
     cosmics.forEach(o=>o.update(dt));
 
+    if (cycle === 1) {
+      if (Math.random() < dt * 20) dreamParticles.push({ x: rand(0, W), y: groundY(), r: rand(1,3), a: 1 });
+      for (let i = dreamParticles.length - 1; i >= 0; i--) {
+        const p = dreamParticles[i];
+        p.y -= 20 * dt;
+        p.a -= 0.3 * dt;
+        if (p.a <= 0) dreamParticles.splice(i, 1);
+      }
+    }
+
     // Collisions
     const pb = playerBBox();
     function tryHit(hitSource){
@@ -973,31 +1011,50 @@
   }
 
   function render(){
-    // Fondo
     ctx.clearRect(0,0,W,H);
-    // Cielo
-    const grad = ctx.createLinearGradient(0,0,0,H);
-    grad.addColorStop(0,'#0b1020');
-    grad.addColorStop(1,'#101a3a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,W,H);
-    drawStars();
+    if (cycle === 0) {
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#0b1020');
+      grad.addColorStop(1,'#101a3a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+      drawStars();
+    } else {
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#1a1025');
+      grad.addColorStop(1,'#4b2b60');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+    }
     cosmics.forEach(o=>o.render(ctx));
 
-    // Suelo
-    ctx.fillStyle = '#0b1536';
-    ctx.fillRect(0, groundY(), W, H-groundY());
-    // marcas de suelo
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.beginPath();
-    for (let i=0;i<12;i++){
-      const x = (i * 160 - (time*speed)%160);
-      ctx.moveTo(x, groundY()+2);
-      ctx.lineTo(x+80, groundY()+2);
+    if (cycle === 0) {
+      ctx.fillStyle = '#2C2C2C';
+      ctx.fillRect(0, groundY(), W, H-groundY());
+      ctx.strokeStyle = '#FFDD00';
+      ctx.lineWidth = 4;
+      ctx.setLineDash([40,40]);
+      ctx.beginPath();
+      for (let x = -(time*speed)%80; x < W; x += 80) {
+        ctx.moveTo(x, groundY()+2);
+        ctx.lineTo(x+40, groundY()+2);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle = '#302138';
+      ctx.fillRect(0, groundY(), W, H-groundY());
+      dreamParticles.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.a;
+        ctx.fillStyle = '#d9c8ff';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fill();
+        ctx.restore();
+      });
     }
-    ctx.stroke();
 
-    // Render entities
     triangles.forEach(o=>o.render(ctx));
     lasers.forEach(o=>o.render(ctx));
     reptiles.forEach(o=>o.render(ctx));
@@ -1006,12 +1063,24 @@
     missiles.forEach(o=>o.render(ctx));
     player.render(ctx);
 
-    // Mensajes situacionales
     const cycleTime = time - cycleStart;
     if (cycleTime < 3) {
       drawTip(`ESCUDO INICIAL 3s`, player.x()+20, player.y - player.height() - 60);
     } else if (Math.abs((cycleTime%60)-0) < 0.2 && cycleTime>59.5 && cycleTime<61) {
       drawTip(`¡ALAS ACTIVADAS!`, player.x()+20, player.y - player.height() - 60);
+    }
+
+    if (transitioning && blackHole.active) {
+      const g = ctx.createRadialGradient(blackHole.x, blackHole.y, 0, blackHole.x, blackHole.y, blackHole.r);
+      g.addColorStop(0,'#000');
+      g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(blackHole.x, blackHole.y, blackHole.r, 0, Math.PI*2);
+      ctx.fill();
+      const alpha = Math.min(1, blackHole.r / Math.max(W,H));
+      ctx.fillStyle = `rgba(0,0,0,${alpha*0.8})`;
+      ctx.fillRect(0,0,W,H);
     }
   }
 
@@ -1033,6 +1102,6 @@
 
   // Mostrar menú al cargar
   overlay.style.display = 'flex';
-  overlay.querySelector('h1').textContent = 'RUNNER: ÁNGELES Y SOMBRAS';
+  overlay.querySelector('h1').textContent = 'ITANIMULLI';
   overlay.querySelector('.subtitle').textContent = 'Evita misiles, rayos y reptilianos. Sobrevive el mayor tiempo posible.';
 })();
