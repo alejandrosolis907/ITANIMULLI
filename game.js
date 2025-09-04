@@ -99,6 +99,14 @@
   let apocalypseTriggered = false;
   let cycleStart = 0;
   let cycle = 0;
+  // cicloActual controla la estética del entorno
+  let cicloActual = 0;
+  // variables de transición de ciclo
+  let enTransicion = false;
+  let progresoTransicion = 0;
+
+  // partículas oníricas para el segundo ciclo
+  let particulasOniricas = [];
 
 
   // Spawners control
@@ -364,6 +372,14 @@
 
   function clearEnemies(){
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+    cosmics.length = 0;
+  }
+
+  function transicionCiclo(){
+    apocalypseTriggered = true;
+    enTransicion = true;
+    progresoTransicion = 0;
+    cosmics.push(new Cosmic('blackhole', true));
   }
 
   // Hazards / Enemies
@@ -791,6 +807,7 @@
     nextCosmic = rand(12,20);
     if (preserve) {
       cycle++;
+      cicloActual++;
       cycleStart = time;
       startTs = performance.now()/1000 - time;
       livesEl.textContent = lives;
@@ -800,6 +817,7 @@
       time = 0;
       cycleStart = 0;
       cycle = 0;
+      cicloActual = 0;
       startTs = performance.now()/1000;
     }
     lastTs = startTs;
@@ -813,6 +831,18 @@
     shieldUntil = time + 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
+
+    // reinicia partículas oníricas según ciclo
+    if (cicloActual >= 1) {
+      particulasOniricas = Array.from({ length: 40 }, () => ({
+        x: Math.random() * W,
+        y: groundY() + rand(0, 40),
+        vy: rand(-10, -20),
+        r: rand(1, 3)
+      }));
+    } else {
+      particulasOniricas = [];
+    }
   }
 
   function startGame(){
@@ -858,12 +888,8 @@
     score = time;
     const cycleTime = time - cycleStart;
 
-    if (!apocalypseTriggered && cycleTime >= 115) {
-      apocalypseTriggered = true;
-      cosmics.push(new Cosmic('blackhole', true));
-      clearEnemies();
-      resetAndStart(true);
-      return;
+    if (!apocalypseTriggered && cicloActual === 0 && cycleTime >= 115) {
+      transicionCiclo();
     }
 
     // dificultad: se mantiene estable hasta los 240s globales y luego aumenta
@@ -889,6 +915,24 @@
   requestAnimationFrame(loop);
 
   function update(dt){
+    if (enTransicion) {
+      progresoTransicion += dt;
+      const cx = W/2, cy = H/2;
+      [reptiles, angels, eyes, triangles, missiles, lasers].forEach(list => {
+        list.forEach(o => {
+          if (o.x !== undefined) o.x += (cx - o.x) * dt * 2;
+          if (o.y !== undefined) o.y += (cy - o.y) * dt * 2;
+        });
+      });
+      cosmics.forEach(o=>o.update(dt));
+      if (progresoTransicion > 3) {
+        clearEnemies();
+        enTransicion = false;
+        resetAndStart(true);
+      }
+      return;
+    }
+
     const cycleTime = time - cycleStart;
     const chaos = cycleTime >= 90 && cycleTime < 115 && !apocalypseTriggered;
     const difficulty = 1 + cycle * 0.15;
@@ -944,6 +988,16 @@
     lasers.forEach(o=>o.update(dt));
     cosmics.forEach(o=>o.update(dt));
 
+    if (cicloActual >= 1) {
+      particulasOniricas.forEach(p => {
+        p.y += p.vy * dt;
+        if (p.y < groundY() - 50) {
+          p.x = Math.random() * W;
+          p.y = groundY() + rand(0, 40);
+        }
+      });
+    }
+
     // Collisions
     const pb = playerBBox();
     function tryHit(hitSource){
@@ -968,35 +1022,60 @@
     });
 
     // HUD
-    hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives} · Fase: ${cycle + 1}`;
+    hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives} · Fase: ${cicloActual + 1}`;
     hud.speedPill.textContent = `Velocidad: ${(speed/420).toFixed(2)}x`;
     hud.wingPill.textContent = (time < wingActiveUntil) ? `Alas: ${(wingActiveUntil-time).toFixed(0)}s` : `Alas: —`;
   }
 
   function render(){
-    // Fondo
+    // Fondo base
     ctx.clearRect(0,0,W,H);
-    // Cielo
-    const grad = ctx.createLinearGradient(0,0,0,H);
-    grad.addColorStop(0,'#0b1020');
-    grad.addColorStop(1,'#101a3a');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0,0,W,H);
-    drawStars();
-    cosmics.forEach(o=>o.render(ctx));
-
-    // Suelo
-    ctx.fillStyle = '#0b1536';
-    ctx.fillRect(0, groundY(), W, H-groundY());
-    // marcas de suelo
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    ctx.beginPath();
-    for (let i=0;i<12;i++){
-      const x = (i * 160 - (time*speed)%160);
-      ctx.moveTo(x, groundY()+2);
-      ctx.lineTo(x+80, groundY()+2);
+    if (cicloActual === 0) {
+      // Cielo estilo arcade
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#0b1020');
+      grad.addColorStop(1,'#101a3a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+      drawStars();
+      cosmics.forEach(o=>o.render(ctx));
+      // Suelo carretera
+      ctx.fillStyle = '#2C2C2C';
+      ctx.fillRect(0, groundY(), W, H-groundY());
+      ctx.strokeStyle = '#FFDD00';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      for (let x = -((time*speed)%120); x < W; x += 60) {
+        ctx.moveTo(x, groundY()+20);
+        ctx.lineTo(x+30, groundY()+20);
+      }
+      ctx.stroke();
+    } else {
+      // Cielo onírico
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#221433');
+      grad.addColorStop(1,'#1b0a2a');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+      drawStars();
+      cosmics.forEach(o=>o.render(ctx));
+      // Suelo místico
+      ctx.fillStyle = '#302138';
+      ctx.fillRect(0, groundY(), W, H-groundY());
+      // partículas flotantes
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      particulasOniricas.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fill();
+      });
+      // ligera neblina
+      const fog = ctx.createLinearGradient(0, groundY(), 0, H);
+      fog.addColorStop(0, 'rgba(128,64,160,0)');
+      fog.addColorStop(1, 'rgba(128,64,160,0.3)');
+      ctx.fillStyle = fog;
+      ctx.fillRect(0,0,W,H);
     }
-    ctx.stroke();
 
     // Render entities
     triangles.forEach(o=>o.render(ctx));
@@ -1013,6 +1092,12 @@
       drawTip(`ESCUDO INICIAL 3s`, player.x()+20, player.y - player.height() - 60);
     } else if (Math.abs((cycleTime%60)-0) < 0.2 && cycleTime>59.5 && cycleTime<61) {
       drawTip(`¡ALAS ACTIVADAS!`, player.x()+20, player.y - player.height() - 60);
+    }
+
+    if (enTransicion) {
+      const alpha = Math.min(1, progresoTransicion / 3);
+      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+      ctx.fillRect(0,0,W,H);
     }
   }
 
