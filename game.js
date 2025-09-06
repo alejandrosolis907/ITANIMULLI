@@ -349,13 +349,13 @@
   }
 
   class Cosmic {
-    constructor(type = null, giant = false){
+    constructor(type = null, giant = false, x = null, y = null){
       const baseTypes = ['comet'];
       this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
       this.giant = giant;
       this.permanent = giant && this.type === 'nebula';
-      this.x = giant ? W/2 : rand(0, W);
-      this.y = giant ? H/2 : rand(0, H*0.4);
+      this.x = x !== null ? x : (giant ? W/2 : rand(0, W));
+      this.y = y !== null ? y : (giant ? H/2 : rand(0, H*0.4));
       this.ttl = this.permanent ? Infinity : (giant ? 4 : 2.5);
       if (this.type === 'comet' || this.type === 'ufo') {
         this.x = -50;
@@ -919,7 +919,7 @@
     }
 
     if (cicloActual === 1) {
-      cosmics.push(new Cosmic('nebula', true));
+      cosmics.push(new Cosmic('nebula', true, W*0.82, H*0.22));
     }
   }
 
@@ -1105,6 +1105,7 @@
         d.alive = false;
         lives += 1;
         livesEl.textContent = lives;
+        flashBadge('+1 ♥');
         Audio.shield();
       }
     });
