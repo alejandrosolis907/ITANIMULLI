@@ -348,12 +348,13 @@
 
   class Cosmic {
     constructor(type = null, giant = false){
-      const baseTypes = ['nebula','comet'];
+      const baseTypes = ['comet'];
       this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
       this.giant = giant;
+      this.permanent = giant && this.type === 'nebula';
       this.x = giant ? W/2 : rand(0, W);
       this.y = giant ? H/2 : rand(0, H*0.4);
-      this.ttl = giant ? 4 : 2.5;
+      this.ttl = this.permanent ? Infinity : (giant ? 4 : 2.5);
       if (this.type === 'comet' || this.type === 'ufo') {
         this.x = -50;
         this.y = rand(0, H*0.3);
@@ -362,7 +363,7 @@
       }
     }
     update(dt){
-      this.ttl -= dt;
+      if (!this.permanent) this.ttl -= dt;
       if (this.vx) this.x += this.vx * dt;
     }
     render(ctx){
@@ -370,11 +371,12 @@
       ctx.translate(this.x, this.y);
       switch(this.type){
         case 'nebula':
-          const g = ctx.createRadialGradient(0,0,0,0,0,40);
+          const radius = this.giant ? 120 : 40;
+          const g = ctx.createRadialGradient(0,0,0,0,0,radius);
           g.addColorStop(0,'rgba(255,200,255,0.6)');
           g.addColorStop(1,'rgba(100,0,150,0)');
           ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(0,0,40,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fill();
           break;
         case 'blackhole':
           const r = this.giant ? 60 : 25;
@@ -409,7 +411,7 @@
       }
       ctx.restore();
     }
-    get alive(){ return this.ttl > 0; }
+    get alive(){ return this.permanent || this.ttl > 0; }
   }
 
   function clearEnemies(){
@@ -884,6 +886,10 @@
       }));
     } else {
       particulasOniricas = [];
+    }
+
+    if (cicloActual === 1) {
+      cosmics.push(new Cosmic('nebula', true));
     }
   }
 
