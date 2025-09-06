@@ -68,20 +68,6 @@ html, body {
   font-size: 12px;
 }
 
-.pickup-note {
-  position: fixed;
-  pointer-events: none;
-  color: #ff9ccf;
-  font-size: 14px;
-  animation: floatUp 1s ease-out forwards;
-  transform: translate(-50%,0);
-}
-
-@keyframes floatUp {
-  from { opacity: 0.9; transform: translate(-50%,0); }
-  to { opacity: 0; transform: translate(-50%,-20px); }
-}
-
 .hud {
   position: fixed;
   right: 10px;

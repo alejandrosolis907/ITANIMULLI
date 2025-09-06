@@ -134,6 +134,7 @@
 
   let wingBoosts = 0; // how many wing windows granted so far (max 3 at 60/120/180s)
   let wingActiveUntil = 0; // timestamp until wings active
+  let lifeTipUntil = 0; // tiempo hasta que desaparece la nota de vida extra
 
   // Entities arrays
   const missiles = [];
@@ -1161,7 +1162,7 @@
         d.alive = false;
         lives += 1;
         livesEl.textContent = lives;
-        flashPickup('+1 ♥');
+        lifeTipUntil = time + 1.5;
         Audio.shield();
       }
     });
@@ -1245,7 +1246,9 @@
 
     // Mensajes situacionales
     const cycleTime = time - cycleStart;
-    if (cycleTime < 3) {
+    if (time < lifeTipUntil) {
+      drawTip(`+1 ♥`, player.x()+20, player.y - player.height() - 60);
+    } else if (cycleTime < 3) {
       drawTip(`ESCUDO INICIAL 3s`, player.x()+20, player.y - player.height() - 60);
     } else if (Math.abs((cycleTime%60)-0) < 0.2 && cycleTime>59.5 && cycleTime<61) {
       drawTip(`¡ALAS ACTIVADAS!`, player.x()+20, player.y - player.height() - 60);
@@ -1272,19 +1275,6 @@
     b.textContent = msg;
     document.body.appendChild(b);
     setTimeout(()=>b.remove(), ms);
-  }
-
-  function flashPickup(msg){
-    const rect = canvas.getBoundingClientRect();
-    const x = rect.left + player.x() * SCALE;
-    const y = rect.top + (player.y - player.height()) * SCALE - 30;
-    const b = document.createElement('div');
-    b.className = 'pickup-note';
-    b.textContent = msg;
-    b.style.left = `${x}px`;
-    b.style.top = `${y}px`;
-    document.body.appendChild(b);
-    setTimeout(()=>b.remove(), 1000);
   }
 
   // Mostrar menú al cargar
