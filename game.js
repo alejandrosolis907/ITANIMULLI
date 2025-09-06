@@ -708,11 +708,11 @@
       ctx.fillRect(-14, -3, 28, 6);
       ctx.fillStyle = '#f33';
       ctx.beginPath();
-      ctx.moveTo(14, 0); ctx.lineTo(22, -5); ctx.lineTo(22, 5); ctx.closePath(); ctx.fill();
+      ctx.moveTo(-14, 0); ctx.lineTo(-22, -5); ctx.lineTo(-22, 5); ctx.closePath(); ctx.fill();
       // estela
       ctx.strokeStyle = 'rgba(255,200,200,.5)';
       ctx.beginPath();
-      ctx.moveTo(-14,0); ctx.lineTo(-28, Math.sin(time*60)*3); ctx.stroke();
+      ctx.moveTo(-22,0); ctx.lineTo(-36, Math.sin(time*60)*3); ctx.stroke();
       ctx.restore();
     }
     bbox(){ return {x:this.x-14, y:this.y-5, w:28, h:10}; }
