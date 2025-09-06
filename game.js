@@ -142,6 +142,7 @@
   const lasers = [];
   const angels = [];
   const eyes = [];
+  const dollars = [];
   const cosmics = [];
   let missileHomingToggle = false;
   let apocalypseTriggered = false;
@@ -163,6 +164,7 @@
   let nextEye = 10;
   let nextTriangle = rand(6.5, 9.0); // interval once triangles start
   let nextCosmic = rand(12, 20); // eventos cósmicos a partir de 180s
+  let nextDollar = 55; // billete de dólar en ciclo 1 cada 55s
 
   // Input
   const keys = new Set();
@@ -347,54 +349,36 @@
   }
 
   class Cosmic {
-    constructor(type = null, giant = false){
-      const baseTypes = ['galaxy','planet','nebula','comet'];
+    constructor(type = null, giant = false, x = null, y = null){
+      const baseTypes = ['comet'];
       this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
       this.giant = giant;
-      this.x = giant ? W/2 : rand(0, W);
-      this.y = giant ? H/2 : rand(0, H*0.4);
-      this.ttl = giant ? 4 : 2.5;
+      this.permanent = giant && this.type === 'nebula';
+      this.x = x !== null ? x : (giant ? W/2 : rand(0, W));
+      this.y = y !== null ? y : (giant ? H/2 : rand(0, H*0.4));
+      this.ttl = this.permanent ? Infinity : (giant ? 4 : 2.5);
       if (this.type === 'comet' || this.type === 'ufo') {
         this.x = -50;
         this.y = rand(0, H*0.3);
         this.vx = this.type === 'comet' ? rand(150,220) : rand(60,90);
         this.ttl = (W + 100) / this.vx;
       }
-      if (this.type === 'planet') {
-        this.r = rand(10,20);
-        const hue = Math.floor(rand(0,360));
-        this.color = `hsl(${hue},60%,60%)`;
-      }
     }
     update(dt){
-      this.ttl -= dt;
+      if (!this.permanent) this.ttl -= dt;
       if (this.vx) this.x += this.vx * dt;
     }
     render(ctx){
       ctx.save();
       ctx.translate(this.x, this.y);
       switch(this.type){
-        case 'galaxy':
-          ctx.strokeStyle = 'rgba(200,200,255,0.6)';
-          ctx.lineWidth = 1.5;
-          for (let arm = 0; arm < 4; arm++) {
-            ctx.beginPath();
-            for (let t = 0; t < Math.PI * 2; t += 0.2) {
-              const rad = t * 2;
-              const ang = t + arm * (Math.PI / 2);
-              ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
-            }
-            ctx.stroke();
-          }
-          ctx.fillStyle = '#fff';
-          ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
-          break;
         case 'nebula':
-          const g = ctx.createRadialGradient(0,0,0,0,0,40);
+          const radius = this.giant ? 120 : 40;
+          const g = ctx.createRadialGradient(0,0,0,0,0,radius);
           g.addColorStop(0,'rgba(255,200,255,0.6)');
           g.addColorStop(1,'rgba(100,0,150,0)');
           ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(0,0,40,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fill();
           break;
         case 'blackhole':
           const r = this.giant ? 60 : 25;
@@ -413,12 +397,6 @@
           ctx.lineWidth = this.giant ? 8 : 4;
           ctx.beginPath(); ctx.arc(0,0,r + (this.giant ? 8 : 4),0,Math.PI*2); ctx.stroke();
           break;
-        case 'planet':
-          ctx.fillStyle = this.color;
-          ctx.beginPath(); ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-          ctx.lineWidth = 2; ctx.stroke();
-          break;
         case 'comet':
           ctx.strokeStyle = 'rgba(255,255,255,0.5)';
           ctx.lineWidth = 2;
@@ -435,11 +413,11 @@
       }
       ctx.restore();
     }
-    get alive(){ return this.ttl > 0; }
+    get alive(){ return this.permanent || this.ttl > 0; }
   }
 
   function clearEnemies(){
-    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = 0;
     cosmics.length = 0;
   }
 
@@ -564,8 +542,8 @@
       const dx = t.x - this.x, dy = t.y - this.y;
       const d = Math.hypot(dx, dy) || 1;
       const spd = 260;
-      const vx = (dx / d) * spd;
-      const vy = (dy / d) * spd;
+      const vx = -(dx / d) * spd;
+      const vy = -(dy / d) * spd;
       const homing = time >= 180 ? (missileHomingToggle = !missileHomingToggle) : false;
       missiles.push(new Missile(this.x, this.y, vx, vy, homing));
       this.fired = true;
@@ -713,28 +691,28 @@
         const dx = t.x - this.x, dy = t.y - this.y;
         const d = Math.hypot(dx, dy) || 1;
         const ux = dx / d, uy = dy / d;
-        this.vx = this.vx * 0.9 + this.speed * ux * 0.1;
-        this.vy = this.vy * 0.9 + this.speed * uy * 0.1;
+        this.vx = this.vx * 0.9 - this.speed * ux * 0.1;
+        this.vy = this.vy * 0.9 - this.speed * uy * 0.1;
       }
-      this.x += this.vx * dt;
-      this.y += this.vy * dt;
+      this.x -= this.vx * dt;
+      this.y -= this.vy * dt;
       if (this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
     render(ctx) {
       // misil simple
       ctx.save();
       ctx.translate(this.x, this.y);
-      const ang = Math.atan2(this.vy, this.vx);
+      const ang = Math.atan2(-this.vy, -this.vx);
       ctx.rotate(ang);
       ctx.fillStyle = '#ddd';
       ctx.fillRect(-14, -3, 28, 6);
       ctx.fillStyle = '#f33';
       ctx.beginPath();
-      ctx.moveTo(14, 0); ctx.lineTo(22, -5); ctx.lineTo(22, 5); ctx.closePath(); ctx.fill();
+      ctx.moveTo(-14, 0); ctx.lineTo(-22, -5); ctx.lineTo(-22, 5); ctx.closePath(); ctx.fill();
       // estela
       ctx.strokeStyle = 'rgba(255,200,200,.5)';
       ctx.beginPath();
-      ctx.moveTo(-14,0); ctx.lineTo(-28, Math.sin(time*60)*3); ctx.stroke();
+      ctx.moveTo(-22,0); ctx.lineTo(-36, Math.sin(time*60)*3); ctx.stroke();
       ctx.restore();
     }
     bbox(){ return {x:this.x-14, y:this.y-5, w:28, h:10}; }
@@ -858,6 +836,33 @@
     }
   }
 
+  class Dollar {
+    constructor() {
+      this.w = 40; this.h = 20;
+      this.x = W + this.w;
+      this.y = groundY() - this.h - 10;
+      this.speed = speed * 0.8;
+      this.alive = true;
+    }
+    update(dt) {
+      this.x -= this.speed * dt;
+      if (this.x < -this.w) this.alive = false;
+    }
+    render(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.fillStyle = '#2ecc71';
+      ctx.fillRect(0, 0, this.w, this.h);
+      ctx.strokeStyle = '#27ae60';
+      ctx.strokeRect(0, 0, this.w, this.h);
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText('$', this.w * 0.3, this.h * 0.8);
+      ctx.restore();
+    }
+    bbox(){ return {x:this.x, y:this.y, w:this.w, h:this.h}; }
+  }
+
   // Collisions
   function rectsOverlap(a,b){
     return (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
@@ -869,10 +874,11 @@
   // Reset & Start
   function resetAndStart(preserve=false){
     state = STATE.PLAY;
-    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = 0;
     missileHomingToggle = false;
     apocalypseTriggered = false;
     nextCosmic = rand(12,20);
+    nextDollar = 55;
     if (preserve) {
       cycle++;
       cicloActual++;
@@ -910,6 +916,10 @@
       }));
     } else {
       particulasOniricas = [];
+    }
+
+    if (cicloActual === 1) {
+      cosmics.push(new Cosmic('nebula', true, W*0.82, H*0.22));
     }
   }
 
@@ -1045,6 +1055,13 @@
       }
       nextCosmic = rand(12,20);
     }
+    if (cicloActual === 0) {
+      nextDollar -= dt;
+      if (nextDollar <= 0) {
+        dollars.push(new Dollar());
+        nextDollar = 55;
+      }
+    }
 
     // Update entities
     player.update(dt);
@@ -1054,6 +1071,7 @@
     triangles.forEach(o=>o.update(dt));
     missiles.forEach(o=>o.update(dt));
     lasers.forEach(o=>o.update(dt));
+    dollars.forEach(o=>o.update(dt));
     cosmics.forEach(o=>o.update(dt));
 
     if (cicloActual >= 1) {
@@ -1082,10 +1100,19 @@
     eyes.forEach(e => { if (e.alive && rectsOverlap(pb, e.bbox())) { e.alive=false; tryHit('eye'); } });
     missiles.forEach(m => { if (m.alive && rectsOverlap(pb, m.bbox())) { m.alive=false; tryHit('missile'); } });
     lasers.forEach(l => { if (l.alive && rectsOverlap(pb, l.bbox())) { l.alive=false; tryHit('laser'); } });
+    dollars.forEach(d => {
+      if (d.alive && rectsOverlap(pb, d.bbox())) {
+        d.alive = false;
+        lives += 1;
+        livesEl.textContent = lives;
+        flashBadge('+1 ♥');
+        Audio.shield();
+      }
+    });
 
     // Cleanup
     function aliveFilter(o){ return o.alive !== false; }
-    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics].forEach(list => {
+    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics, dollars].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
 
@@ -1156,6 +1183,7 @@
     angels.forEach(o=>o.render(ctx));
     eyes.forEach(o=>o.render(ctx));
     missiles.forEach(o=>o.render(ctx));
+    dollars.forEach(o=>o.render(ctx));
     player.render(ctx);
 
     // Mensajes situacionales
