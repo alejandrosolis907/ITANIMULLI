@@ -142,6 +142,7 @@
   const lasers = [];
   const angels = [];
   const eyes = [];
+  const dollars = [];
   const cosmics = [];
   let missileHomingToggle = false;
   let apocalypseTriggered = false;
@@ -163,6 +164,7 @@
   let nextEye = 10;
   let nextTriangle = rand(6.5, 9.0); // interval once triangles start
   let nextCosmic = rand(12, 20); // eventos cósmicos a partir de 180s
+  let nextDollar = 55; // billete de dólar en ciclo 1 cada 55s
 
   // Input
   const keys = new Set();
@@ -415,7 +417,7 @@
   }
 
   function clearEnemies(){
-    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = 0;
     cosmics.length = 0;
   }
 
@@ -834,6 +836,33 @@
     }
   }
 
+  class Dollar {
+    constructor() {
+      this.w = 40; this.h = 20;
+      this.x = W + this.w;
+      this.y = groundY() - this.h - 10;
+      this.speed = speed * 0.8;
+      this.alive = true;
+    }
+    update(dt) {
+      this.x -= this.speed * dt;
+      if (this.x < -this.w) this.alive = false;
+    }
+    render(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.fillStyle = '#2ecc71';
+      ctx.fillRect(0, 0, this.w, this.h);
+      ctx.strokeStyle = '#27ae60';
+      ctx.strokeRect(0, 0, this.w, this.h);
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText('$', this.w * 0.3, this.h * 0.8);
+      ctx.restore();
+    }
+    bbox(){ return {x:this.x, y:this.y, w:this.w, h:this.h}; }
+  }
+
   // Collisions
   function rectsOverlap(a,b){
     return (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
@@ -845,10 +874,11 @@
   // Reset & Start
   function resetAndStart(preserve=false){
     state = STATE.PLAY;
-    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = 0;
     missileHomingToggle = false;
     apocalypseTriggered = false;
     nextCosmic = rand(12,20);
+    nextDollar = 55;
     if (preserve) {
       cycle++;
       cicloActual++;
@@ -1025,6 +1055,13 @@
       }
       nextCosmic = rand(12,20);
     }
+    if (cicloActual === 0) {
+      nextDollar -= dt;
+      if (nextDollar <= 0) {
+        dollars.push(new Dollar());
+        nextDollar = 55;
+      }
+    }
 
     // Update entities
     player.update(dt);
@@ -1034,6 +1071,7 @@
     triangles.forEach(o=>o.update(dt));
     missiles.forEach(o=>o.update(dt));
     lasers.forEach(o=>o.update(dt));
+    dollars.forEach(o=>o.update(dt));
     cosmics.forEach(o=>o.update(dt));
 
     if (cicloActual >= 1) {
@@ -1062,10 +1100,18 @@
     eyes.forEach(e => { if (e.alive && rectsOverlap(pb, e.bbox())) { e.alive=false; tryHit('eye'); } });
     missiles.forEach(m => { if (m.alive && rectsOverlap(pb, m.bbox())) { m.alive=false; tryHit('missile'); } });
     lasers.forEach(l => { if (l.alive && rectsOverlap(pb, l.bbox())) { l.alive=false; tryHit('laser'); } });
+    dollars.forEach(d => {
+      if (d.alive && rectsOverlap(pb, d.bbox())) {
+        d.alive = false;
+        lives += 1;
+        livesEl.textContent = lives;
+        Audio.shield();
+      }
+    });
 
     // Cleanup
     function aliveFilter(o){ return o.alive !== false; }
-    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics].forEach(list => {
+    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics, dollars].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
 
@@ -1136,6 +1182,7 @@
     angels.forEach(o=>o.render(ctx));
     eyes.forEach(o=>o.render(ctx));
     missiles.forEach(o=>o.render(ctx));
+    dollars.forEach(o=>o.render(ctx));
     player.render(ctx);
 
     // Mensajes situacionales
