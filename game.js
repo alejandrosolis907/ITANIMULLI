@@ -348,7 +348,7 @@
 
   class Cosmic {
     constructor(type = null, giant = false){
-      const baseTypes = ['galaxy','planet','nebula','comet'];
+      const baseTypes = ['nebula','comet'];
       this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
       this.giant = giant;
       this.x = giant ? W/2 : rand(0, W);
@@ -360,11 +360,6 @@
         this.vx = this.type === 'comet' ? rand(150,220) : rand(60,90);
         this.ttl = (W + 100) / this.vx;
       }
-      if (this.type === 'planet') {
-        this.r = rand(10,20);
-        const hue = Math.floor(rand(0,360));
-        this.color = `hsl(${hue},60%,60%)`;
-      }
     }
     update(dt){
       this.ttl -= dt;
@@ -374,21 +369,6 @@
       ctx.save();
       ctx.translate(this.x, this.y);
       switch(this.type){
-        case 'galaxy':
-          ctx.strokeStyle = 'rgba(200,200,255,0.6)';
-          ctx.lineWidth = 1.5;
-          for (let arm = 0; arm < 4; arm++) {
-            ctx.beginPath();
-            for (let t = 0; t < Math.PI * 2; t += 0.2) {
-              const rad = t * 2;
-              const ang = t + arm * (Math.PI / 2);
-              ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
-            }
-            ctx.stroke();
-          }
-          ctx.fillStyle = '#fff';
-          ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
-          break;
         case 'nebula':
           const g = ctx.createRadialGradient(0,0,0,0,0,40);
           g.addColorStop(0,'rgba(255,200,255,0.6)');
@@ -412,12 +392,6 @@
           ctx.strokeStyle = 'rgba(0,120,255,0.9)';
           ctx.lineWidth = this.giant ? 8 : 4;
           ctx.beginPath(); ctx.arc(0,0,r + (this.giant ? 8 : 4),0,Math.PI*2); ctx.stroke();
-          break;
-        case 'planet':
-          ctx.fillStyle = this.color;
-          ctx.beginPath(); ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-          ctx.lineWidth = 2; ctx.stroke();
           break;
         case 'comet':
           ctx.strokeStyle = 'rgba(255,255,255,0.5)';
