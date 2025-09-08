@@ -146,7 +146,6 @@
   const dollars = [];
   const cosmics = [];
   const scenery = [];
-  let missileHomingToggle = false;
   let apocalypseTriggered = false;
   let cycleStart = 0;
   let cycle = 0;
@@ -546,13 +545,7 @@
       // Dispara misil dirigido al torso del jugador; puede esquivarse saltando
       const targetX = player.x() + player.width() * 0.3;
       const targetY = player.y - player.height() * 0.4;
-      const dx = targetX - this.x, dy = targetY - this.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const spd = 260;
-      const vx = (dx / d) * spd;
-      const vy = (dy / d) * spd;
-      const homing = time >= 180 ? (missileHomingToggle = !missileHomingToggle) : false;
-      missiles.push(new Missile(this.x, this.y, vx, vy, homing));
+      missiles.push(new Missile(this.x, this.y, targetX, targetY));
       this.fired = true;
     }
     render(ctx) {
@@ -685,25 +678,20 @@
   }
 
   class Missile {
-    constructor(x, y, vx, vy, homing = false) {
+    constructor(x, y, tx, ty) {
       this.x = x; this.y = y;
-      this.vx = vx; this.vy = vy;
-      this.speed = Math.hypot(vx, vy) || 260;
+      const ang = Math.atan2(ty - y, tx - x);
+      const speed = 800;
+      this.vx = Math.cos(ang) * speed;
+      this.vy = Math.sin(ang) * speed;
       this.alive = true;
-      this.homing = homing;
+      this.ttl = 1.5;
     }
     update(dt) {
-      if (this.homing) {
-        const t = player.thigh();
-        const dx = t.x - this.x, dy = t.y - this.y;
-        const d = Math.hypot(dx, dy) || 1;
-        const ux = dx / d, uy = dy / d;
-        this.vx = this.vx * 0.9 + this.speed * ux * 0.1;
-        this.vy = this.vy * 0.9 + this.speed * uy * 0.1;
-      }
       this.x += this.vx * dt;
       this.y += this.vy * dt;
-      if (this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
+      this.ttl -= dt;
+      if (this.ttl <= 0 || this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
     render(ctx) {
       // misil simple
@@ -920,7 +908,6 @@
   function resetAndStart(preserve=false){
     state = STATE.PLAY;
     missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = scenery.length = 0;
-    missileHomingToggle = false;
     apocalypseTriggered = false;
     nextCosmic = rand(12,20);
     nextDollar = 55;
