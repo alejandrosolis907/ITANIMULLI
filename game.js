@@ -549,8 +549,8 @@
       const dx = t.x - this.x, dy = t.y - this.y;
       const d = Math.hypot(dx, dy) || 1;
       const spd = 260;
-      const vx = -(dx / d) * spd;
-      const vy = -(dy / d) * spd;
+      const vx = (dx / d) * spd;
+      const vy = (dy / d) * spd;
       const homing = time >= 180 ? (missileHomingToggle = !missileHomingToggle) : false;
       missiles.push(new Missile(this.x, this.y, vx, vy, homing));
       this.fired = true;
@@ -698,18 +698,18 @@
         const dx = t.x - this.x, dy = t.y - this.y;
         const d = Math.hypot(dx, dy) || 1;
         const ux = dx / d, uy = dy / d;
-        this.vx = this.vx * 0.9 - this.speed * ux * 0.1;
-        this.vy = this.vy * 0.9 - this.speed * uy * 0.1;
+        this.vx = this.vx * 0.9 + this.speed * ux * 0.1;
+        this.vy = this.vy * 0.9 + this.speed * uy * 0.1;
       }
-      this.x -= this.vx * dt;
-      this.y -= this.vy * dt;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
       if (this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
     render(ctx) {
       // misil simple
       ctx.save();
       ctx.translate(this.x, this.y);
-      const ang = Math.atan2(-this.vy, -this.vx);
+      const ang = Math.atan2(this.vy, this.vx);
       ctx.rotate(ang);
       ctx.fillStyle = '#ddd';
       ctx.fillRect(-14, -3, 28, 6);
