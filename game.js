@@ -545,7 +545,9 @@
       // Dispara misil dirigido al torso del jugador; puede esquivarse saltando
       const targetX = player.x() + player.width() * 0.3;
       const targetY = player.y - player.height() * 0.4;
-      missiles.push(new Missile(this.x, this.y, targetX, targetY));
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
+      const homing = chaos && Math.random() < 0.3; // algunos misiles se vuelven teledirigidos
+      missiles.push(new Missile(this.x, this.y, targetX, targetY, homing));
       this.fired = true;
     }
     render(ctx) {
@@ -678,16 +680,24 @@
   }
 
   class Missile {
-    constructor(x, y, tx, ty) {
+    constructor(x, y, tx, ty, homing = false) {
       this.x = x; this.y = y;
       const ang = Math.atan2(ty - y, tx - x);
-      const speed = 800;
-      this.vx = Math.cos(ang) * speed;
-      this.vy = Math.sin(ang) * speed;
+      this.speed = 800;
+      this.vx = Math.cos(ang) * this.speed;
+      this.vy = Math.sin(ang) * this.speed;
+      this.homing = homing;
       this.alive = true;
       this.ttl = 1.5;
     }
     update(dt) {
+      if (this.homing) {
+        const tx = player.x() + player.width() * 0.3;
+        const ty = player.y - player.height() * 0.4;
+        const ang = Math.atan2(ty - this.y, tx - this.x);
+        this.vx = Math.cos(ang) * this.speed;
+        this.vy = Math.sin(ang) * this.speed;
+      }
       this.x += this.vx * dt;
       this.y += this.vy * dt;
       this.ttl -= dt;
