@@ -544,9 +544,10 @@
       if (this.x < -80) this.alive = false;
     }
     fire() {
-      // Dispara misil apuntado al jugador
-      const t = player.thigh();
-      const dx = t.x - this.x, dy = t.y - this.y;
+      // Dispara misil dirigido al torso del jugador; puede esquivarse saltando
+      const targetX = player.x() + player.width() * 0.3;
+      const targetY = player.y - player.height() * 0.4;
+      const dx = targetX - this.x, dy = targetY - this.y;
       const d = Math.hypot(dx, dy) || 1;
       const spd = 260;
       const vx = (dx / d) * spd;
@@ -685,7 +686,7 @@
   }
 
   class Missile {
-    constructor(x, y, vx, vy, homing = true) {
+    constructor(x, y, vx, vy, homing = false) {
       this.x = x; this.y = y;
       this.vx = vx; this.vy = vy;
       this.speed = Math.hypot(vx, vy) || 260;
