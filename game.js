@@ -160,7 +160,6 @@
   let particulasOniricas = [];
 
   // Decoración del suelo en ciclo 2
-  let reptilesSpawned = 0;
   let sceneryEnabled = false;
   let nextScenery = 2;
 
@@ -925,9 +924,6 @@
     apocalypseTriggered = false;
     nextCosmic = rand(12,20);
     nextDollar = 55;
-    reptilesSpawned = 0;
-    sceneryEnabled = false;
-    nextScenery = 2;
     if (preserve) {
       cycle++;
       cicloActual++;
@@ -969,6 +965,11 @@
 
     if (cicloActual === 1) {
       cosmics.push(new Cosmic('nebula', true, W*0.82, groundY()*0.75));
+      sceneryEnabled = true;
+      nextScenery = 0;
+    } else {
+      sceneryEnabled = false;
+      nextScenery = 2;
     }
   }
 
@@ -1067,8 +1068,6 @@
     nextReptile -= dt * (chaos ? 2 : 1);
     if (nextReptile <= 0) {
       reptiles.push(new Reptile());
-      reptilesSpawned++;
-      if (cicloActual === 1 && reptilesSpawned >= 2) sceneryEnabled = true;
       const early = 1 + Math.max(0, 240 - cycleTime) / 240;
       nextReptile = rand(1.6, 2.6) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.003));
     }
