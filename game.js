@@ -875,7 +875,8 @@
       this.type = Math.random() < 0.5 ? 'rock' : 'plant';
       this.s = rand(20, 35);
       this.x = W + this.s;
-      this.y = groundY();
+      const gY = groundY();
+      this.y = gY + rand(0, H - gY);
       this.speed = speed * rand(0.8, 1.1);
       this.alive = true;
     }
