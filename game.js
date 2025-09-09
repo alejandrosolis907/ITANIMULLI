@@ -694,8 +694,7 @@
       this.alive = true;
       this.ttl = 1.5;
       if (this.homing && dog && dog.alive) {
-        dog.hit();
-        this.alive = false;
+        dog.intercept(this);
       }
     }
     update(dt) {
@@ -737,10 +736,51 @@
       this.y = groundY();
       this.lives = 3;
       this.alive = true;
+      this.state = 'idle';
+      this.target = null;
+    }
+    intercept(missile) {
+      if (this.state !== 'idle') return;
+      this.target = missile;
+      this.state = 'jump';
     }
     update(dt) {
-      this.x = player.x() - 60;
-      this.y = groundY();
+      if (this.state === 'idle') {
+        this.x = player.x() - 60;
+        this.y = groundY();
+      } else if (this.state === 'jump') {
+        if (!this.target || !this.target.alive) {
+          this.state = 'return';
+          this.target = null;
+        } else {
+          const dx = this.target.x - this.x;
+          const dy = this.target.y - this.y;
+          const dist = Math.hypot(dx, dy);
+          const speed = 1200;
+          if (dist < 20) {
+            this.target.alive = false;
+            this.hit();
+            this.state = 'return';
+            this.target = null;
+          } else {
+            this.x += (dx / dist) * speed * dt;
+            this.y += (dy / dist) * speed * dt;
+          }
+        }
+      } else if (this.state === 'return') {
+        const tx = player.x() - 60;
+        const ty = groundY();
+        const dx = tx - this.x;
+        const dy = ty - this.y;
+        const dist = Math.hypot(dx, dy);
+        const speed = 1200;
+        if (dist < 10) {
+          this.state = 'idle';
+        } else {
+          this.x += (dx / dist) * speed * dt;
+          this.y += (dy / dist) * speed * dt;
+        }
+      }
     }
     hit() {
       this.lives--;
