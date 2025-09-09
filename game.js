@@ -917,7 +917,7 @@
   // Reset & Start
   function resetAndStart(preserve=false){
     state = STATE.PLAY;
-    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = scenery.length = 0;
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = scenery.length = cosmics.length = 0;
     apocalypseTriggered = false;
     nextCosmic = rand(12,20);
     nextDollar = 55;
@@ -949,7 +949,7 @@
     overlay.style.display = 'none';
 
     // reinicia partículas oníricas según ciclo
-    if (cicloActual >= 1) {
+    if (cicloActual >= 1 && cicloActual < 2) {
       particulasOniricas = Array.from({ length: 40 }, () => ({
         x: Math.random() * W,
         y: groundY() + rand(0, 40),
@@ -964,9 +964,15 @@
       cosmics.push(new Cosmic('nebula', true, W*0.82, groundY()*0.75));
       sceneryEnabled = true;
       nextScenery = 0;
+      groundY = () => H*0.82;
+    } else if (cicloActual === 2) {
+      sceneryEnabled = false;
+      nextScenery = 2;
+      groundY = () => H*0.96;
     } else {
       sceneryEnabled = false;
       nextScenery = 2;
+      groundY = () => H*0.82;
     }
   }
 
@@ -1013,7 +1019,7 @@
     score = time;
     const cycleTime = time - cycleStart;
 
-    if (!apocalypseTriggered && cicloActual === 0 && cycleTime >= 115) {
+    if (!apocalypseTriggered && cycleTime >= 115 && cicloActual < 2) {
       transicionCiclo();
     }
 
@@ -1092,15 +1098,17 @@
         nextTriangle = rand(6.5, 9.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.0025));
       }
     }
-    nextCosmic -= dt;
-    if (nextCosmic <= 0) {
-      if (time >= 180 && Math.random() < 0.25) {
-        cosmics.push(new Cosmic('blackhole', true));
-        clearEnemies();
-      } else {
-        cosmics.push(new Cosmic());
+    if (cicloActual < 2) {
+      nextCosmic -= dt;
+      if (nextCosmic <= 0) {
+        if (time >= 180 && Math.random() < 0.25) {
+          cosmics.push(new Cosmic('blackhole', true));
+          clearEnemies();
+        } else {
+          cosmics.push(new Cosmic());
+        }
+        nextCosmic = rand(12,20);
       }
-      nextCosmic = rand(12,20);
     }
     if (cicloActual === 0) {
       nextDollar -= dt;
@@ -1129,7 +1137,7 @@
     cosmics.forEach(o=>o.update(dt));
     scenery.forEach(o=>o.update(dt));
 
-    if (cicloActual >= 1) {
+    if (cicloActual === 1) {
       particulasOniricas.forEach(p => {
         p.y += p.vy * dt;
         if (p.y < groundY() - 50) {
@@ -1205,7 +1213,7 @@
         ctx.lineTo(x+30, roadCenterY);
       }
       ctx.stroke();
-    } else {
+    } else if (cicloActual === 1) {
       // Cielo onírico
       const grad = ctx.createLinearGradient(0,0,0,H);
       grad.addColorStop(0,'#221433');
@@ -1229,6 +1237,23 @@
       fog.addColorStop(1, 'rgba(128,64,160,0.3)');
       ctx.fillStyle = fog;
       ctx.fillRect(0,0,W,H);
+    } else {
+      // Base subterránea alienígena
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#050608');
+      grad.addColorStop(1,'#000000');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+      // estructuras verticales
+      ctx.fillStyle = '#111';
+      for (let x = -((time*speed)%100); x < W; x += 100) {
+        ctx.fillRect(x, 0, 12, H);
+      }
+      // piso metálico
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, groundY(), W, H-groundY());
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0, groundY()-2, W, 2);
     }
 
     // Render entities
