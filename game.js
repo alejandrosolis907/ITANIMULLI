@@ -147,6 +147,8 @@
   const lifeStars = [];
   const cosmics = [];
   const scenery = [];
+  let dog = null;
+  let dogSpawned = false;
   let apocalypseTriggered = false;
   let cycleStart = 0;
   let cycle = 0;
@@ -691,6 +693,10 @@
       this.homing = homing;
       this.alive = true;
       this.ttl = 1.5;
+      if (this.homing && dog && dog.alive) {
+        dog.hit();
+        this.alive = false;
+      }
     }
     update(dt) {
       if (this.homing) {
@@ -723,6 +729,40 @@
       ctx.restore();
     }
     bbox(){ return {x:this.x-14, y:this.y-5, w:28, h:10}; }
+  }
+
+  class Dog {
+    constructor() {
+      this.x = player.x() - 60;
+      this.y = groundY();
+      this.lives = 3;
+      this.alive = true;
+    }
+    update(dt) {
+      this.x = player.x() - 60;
+      this.y = groundY();
+    }
+    hit() {
+      this.lives--;
+      if (this.lives <= 0) {
+        this.alive = false;
+        lives += 1;
+        livesEl.textContent = lives;
+        lifeTipUntil = time + 1.5;
+      }
+    }
+    render(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.fillStyle = '#bba';
+      ctx.fillRect(-20, -20, 40, 20);
+      ctx.fillRect(-15, -35, 30, 15);
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(10, -27, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   class TriangleEye {
@@ -959,6 +999,7 @@
     nextCosmic = rand(12,20);
     nextDollar = 55;
     nextStar = 50;
+    if (!preserve) { dog = null; dogSpawned = false; }
     if (preserve) {
       cycle++;
       cicloActual++;
@@ -1170,8 +1211,14 @@
       }
     }
 
+    if (!dogSpawned && time >= 77) {
+      dog = new Dog();
+      dogSpawned = true;
+    }
+
     // Update entities
     player.update(dt);
+    if (dog && dog.alive) dog.update(dt);
     reptiles.forEach(o=>o.update(dt));
     angels.forEach(o=>o.update(dt));
     eyes.forEach(o=>o.update(dt));
@@ -1233,6 +1280,7 @@
     [reptiles, angels, eyes, triangles, missiles, lasers, cosmics, dollars, lifeStars, scenery].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
+    if (dog && dog.alive === false) dog = null;
 
     // HUD
     hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives} · Fase: ${cicloActual + 1}`;
@@ -1321,6 +1369,7 @@
     lifeStars.forEach(o=>o.render(ctx));
     dollars.forEach(o=>o.render(ctx));
     scenery.forEach(o=>o.render(ctx));
+    if (dog && dog.alive) dog.render(ctx);
     player.render(ctx);
 
     // Mensajes situacionales
