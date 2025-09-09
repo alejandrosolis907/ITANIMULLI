@@ -134,6 +134,7 @@
 
   let wingBoosts = 0; // how many wing windows granted so far (max 3 at 60/120/180s)
   let wingActiveUntil = 0; // timestamp until wings active
+  let lifeTipUntil = 0; // tiempo hasta que desaparece la nota de vida extra
 
   // Entities arrays
   const missiles = [];
@@ -142,8 +143,9 @@
   const lasers = [];
   const angels = [];
   const eyes = [];
+  const dollars = [];
   const cosmics = [];
-  let missileHomingToggle = false;
+  const scenery = [];
   let apocalypseTriggered = false;
   let cycleStart = 0;
   let cycle = 0;
@@ -156,6 +158,10 @@
   // partículas oníricas para el segundo ciclo
   let particulasOniricas = [];
 
+  // Decoración del suelo en ciclo 2
+  let sceneryEnabled = false;
+  let nextScenery = 2;
+
 
   // Spawners control
   let nextReptile = 2;
@@ -163,6 +169,7 @@
   let nextEye = 10;
   let nextTriangle = rand(6.5, 9.0); // interval once triangles start
   let nextCosmic = rand(12, 20); // eventos cósmicos a partir de 180s
+  let nextDollar = 55; // billete de dólar en ciclo 1 cada 55s
 
   // Input
   const keys = new Set();
@@ -347,54 +354,36 @@
   }
 
   class Cosmic {
-    constructor(type = null, giant = false){
-      const baseTypes = ['galaxy','planet','nebula','comet'];
+    constructor(type = null, giant = false, x = null, y = null){
+      const baseTypes = ['comet'];
       this.type = type || (Math.random() < 0.1 ? 'ufo' : baseTypes[Math.floor(Math.random()*baseTypes.length)]);
       this.giant = giant;
-      this.x = giant ? W/2 : rand(0, W);
-      this.y = giant ? H/2 : rand(0, H*0.4);
-      this.ttl = giant ? 4 : 2.5;
+      this.permanent = giant && this.type === 'nebula';
+      this.x = x !== null ? x : (giant ? W/2 : rand(0, W));
+      this.y = y !== null ? y : (giant ? H/2 : rand(0, H*0.4));
+      this.ttl = this.permanent ? Infinity : (giant ? 4 : 2.5);
       if (this.type === 'comet' || this.type === 'ufo') {
         this.x = -50;
         this.y = rand(0, H*0.3);
         this.vx = this.type === 'comet' ? rand(150,220) : rand(60,90);
         this.ttl = (W + 100) / this.vx;
       }
-      if (this.type === 'planet') {
-        this.r = rand(10,20);
-        const hue = Math.floor(rand(0,360));
-        this.color = `hsl(${hue},60%,60%)`;
-      }
     }
     update(dt){
-      this.ttl -= dt;
+      if (!this.permanent) this.ttl -= dt;
       if (this.vx) this.x += this.vx * dt;
     }
     render(ctx){
       ctx.save();
       ctx.translate(this.x, this.y);
       switch(this.type){
-        case 'galaxy':
-          ctx.strokeStyle = 'rgba(200,200,255,0.6)';
-          ctx.lineWidth = 1.5;
-          for (let arm = 0; arm < 4; arm++) {
-            ctx.beginPath();
-            for (let t = 0; t < Math.PI * 2; t += 0.2) {
-              const rad = t * 2;
-              const ang = t + arm * (Math.PI / 2);
-              ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
-            }
-            ctx.stroke();
-          }
-          ctx.fillStyle = '#fff';
-          ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
-          break;
         case 'nebula':
-          const g = ctx.createRadialGradient(0,0,0,0,0,40);
+          const radius = this.giant ? 120 : 40;
+          const g = ctx.createRadialGradient(0,0,0,0,0,radius);
           g.addColorStop(0,'rgba(255,200,255,0.6)');
           g.addColorStop(1,'rgba(100,0,150,0)');
           ctx.fillStyle = g;
-          ctx.beginPath(); ctx.arc(0,0,40,0,Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(0,0,radius,0,Math.PI*2); ctx.fill();
           break;
         case 'blackhole':
           const r = this.giant ? 60 : 25;
@@ -413,12 +402,6 @@
           ctx.lineWidth = this.giant ? 8 : 4;
           ctx.beginPath(); ctx.arc(0,0,r + (this.giant ? 8 : 4),0,Math.PI*2); ctx.stroke();
           break;
-        case 'planet':
-          ctx.fillStyle = this.color;
-          ctx.beginPath(); ctx.arc(0,0,this.r,0,Math.PI*2); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-          ctx.lineWidth = 2; ctx.stroke();
-          break;
         case 'comet':
           ctx.strokeStyle = 'rgba(255,255,255,0.5)';
           ctx.lineWidth = 2;
@@ -435,11 +418,11 @@
       }
       ctx.restore();
     }
-    get alive(){ return this.ttl > 0; }
+    get alive(){ return this.permanent || this.ttl > 0; }
   }
 
   function clearEnemies(){
-    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = 0;
     cosmics.length = 0;
   }
 
@@ -559,15 +542,12 @@
       if (this.x < -80) this.alive = false;
     }
     fire() {
-      // Dispara misil apuntado al jugador
-      const t = player.thigh();
-      const dx = t.x - this.x, dy = t.y - this.y;
-      const d = Math.hypot(dx, dy) || 1;
-      const spd = 260;
-      const vx = (dx / d) * spd;
-      const vy = (dy / d) * spd;
-      const homing = time >= 180 ? (missileHomingToggle = !missileHomingToggle) : false;
-      missiles.push(new Missile(this.x, this.y, vx, vy, homing));
+      // Dispara misil dirigido al torso del jugador; puede esquivarse saltando
+      const targetX = player.x() + player.width() * 0.3;
+      const targetY = player.y - player.height() * 0.4;
+      const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
+      const homing = chaos && Math.random() < 0.3; // algunos misiles se vuelven teledirigidos
+      missiles.push(new Missile(this.x, this.y, targetX, targetY, homing));
       this.fired = true;
     }
     render(ctx) {
@@ -700,25 +680,28 @@
   }
 
   class Missile {
-    constructor(x, y, vx, vy, homing = true) {
+    constructor(x, y, tx, ty, homing = false) {
       this.x = x; this.y = y;
-      this.vx = vx; this.vy = vy;
-      this.speed = Math.hypot(vx, vy) || 260;
-      this.alive = true;
+      const ang = Math.atan2(ty - y, tx - x);
+      this.speed = 800;
+      this.vx = Math.cos(ang) * this.speed;
+      this.vy = Math.sin(ang) * this.speed;
       this.homing = homing;
+      this.alive = true;
+      this.ttl = 1.5;
     }
     update(dt) {
       if (this.homing) {
-        const t = player.thigh();
-        const dx = t.x - this.x, dy = t.y - this.y;
-        const d = Math.hypot(dx, dy) || 1;
-        const ux = dx / d, uy = dy / d;
-        this.vx = this.vx * 0.9 + this.speed * ux * 0.1;
-        this.vy = this.vy * 0.9 + this.speed * uy * 0.1;
+        const tx = player.x() + player.width() * 0.3;
+        const ty = player.y - player.height() * 0.4;
+        const ang = Math.atan2(ty - this.y, tx - this.x);
+        this.vx = Math.cos(ang) * this.speed;
+        this.vy = Math.sin(ang) * this.speed;
       }
       this.x += this.vx * dt;
       this.y += this.vy * dt;
-      if (this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
+      this.ttl -= dt;
+      if (this.ttl <= 0 || this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
     render(ctx) {
       // misil simple
@@ -730,11 +713,11 @@
       ctx.fillRect(-14, -3, 28, 6);
       ctx.fillStyle = '#f33';
       ctx.beginPath();
-      ctx.moveTo(14, 0); ctx.lineTo(22, -5); ctx.lineTo(22, 5); ctx.closePath(); ctx.fill();
+      ctx.moveTo(-14, 0); ctx.lineTo(-22, -5); ctx.lineTo(-22, 5); ctx.closePath(); ctx.fill();
       // estela
       ctx.strokeStyle = 'rgba(255,200,200,.5)';
       ctx.beginPath();
-      ctx.moveTo(-14,0); ctx.lineTo(-28, Math.sin(time*60)*3); ctx.stroke();
+      ctx.moveTo(-22,0); ctx.lineTo(-36, Math.sin(time*60)*3); ctx.stroke();
       ctx.restore();
     }
     bbox(){ return {x:this.x-14, y:this.y-5, w:28, h:10}; }
@@ -858,6 +841,71 @@
     }
   }
 
+  class Dollar {
+    constructor() {
+      this.w = 40; this.h = 20;
+      this.x = W + this.w;
+      this.y = groundY() - this.h - 10;
+      this.speed = speed * 0.8;
+      this.alive = true;
+    }
+    update(dt) {
+      this.x -= this.speed * dt;
+      if (this.x < -this.w) this.alive = false;
+    }
+    render(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.fillStyle = '#2ecc71';
+      ctx.fillRect(0, 0, this.w, this.h);
+      ctx.strokeStyle = '#27ae60';
+      ctx.strokeRect(0, 0, this.w, this.h);
+      ctx.fillStyle = '#fff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText('$', this.w * 0.3, this.h * 0.8);
+      ctx.restore();
+    }
+    bbox(){ return {x:this.x, y:this.y, w:this.w, h:this.h}; }
+  }
+
+  class Scenery {
+    constructor(){
+      this.type = Math.random() < 0.5 ? 'rock' : 'plant';
+      this.s = rand(20, 35);
+      this.x = W + this.s;
+      const gY = groundY();
+      this.y = gY + rand(0, H - gY);
+      this.speed = speed * rand(0.8, 1.1);
+      this.alive = true;
+    }
+    update(dt){
+      this.x -= this.speed * dt;
+      if (this.x < -50) this.alive = false;
+    }
+    render(ctx){
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      if (this.type === 'rock'){
+        ctx.fillStyle = '#555';
+        ctx.beginPath();
+        ctx.moveTo(-this.s*0.6,0);
+        ctx.lineTo(-this.s*0.3,-this.s*0.5);
+        ctx.lineTo(this.s*0.3,-this.s*0.5);
+        ctx.lineTo(this.s*0.6,0);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillStyle = '#4caf50';
+        ctx.beginPath();
+        ctx.moveTo(0, -this.s);
+        ctx.bezierCurveTo(-this.s*0.3, -this.s*0.6, -this.s*0.3, -this.s*0.2, 0, 0);
+        ctx.bezierCurveTo(this.s*0.3, -this.s*0.2, this.s*0.3, -this.s*0.6, 0, -this.s);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
   // Collisions
   function rectsOverlap(a,b){
     return (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
@@ -869,10 +917,10 @@
   // Reset & Start
   function resetAndStart(preserve=false){
     state = STATE.PLAY;
-    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = 0;
-    missileHomingToggle = false;
+    missiles.length = reptiles.length = triangles.length = lasers.length = angels.length = eyes.length = dollars.length = scenery.length = cosmics.length = 0;
     apocalypseTriggered = false;
     nextCosmic = rand(12,20);
+    nextDollar = 55;
     if (preserve) {
       cycle++;
       cicloActual++;
@@ -901,7 +949,7 @@
     overlay.style.display = 'none';
 
     // reinicia partículas oníricas según ciclo
-    if (cicloActual >= 1) {
+    if (cicloActual >= 1 && cicloActual < 2) {
       particulasOniricas = Array.from({ length: 40 }, () => ({
         x: Math.random() * W,
         y: groundY() + rand(0, 40),
@@ -910,6 +958,21 @@
       }));
     } else {
       particulasOniricas = [];
+    }
+
+    if (cicloActual === 1) {
+      cosmics.push(new Cosmic('nebula', true, W*0.82, groundY()*0.75));
+      sceneryEnabled = true;
+      nextScenery = 0;
+      groundY = () => H*0.82;
+    } else if (cicloActual === 2) {
+      sceneryEnabled = false;
+      nextScenery = 2;
+      groundY = () => H*0.96;
+    } else {
+      sceneryEnabled = false;
+      nextScenery = 2;
+      groundY = () => H*0.82;
     }
   }
 
@@ -956,7 +1019,7 @@
     score = time;
     const cycleTime = time - cycleStart;
 
-    if (!apocalypseTriggered && cicloActual === 0 && cycleTime >= 115) {
+    if (!apocalypseTriggered && cycleTime >= 115 && cicloActual < 2) {
       transicionCiclo();
     }
 
@@ -1035,15 +1098,31 @@
         nextTriangle = rand(6.5, 9.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.0025));
       }
     }
-    nextCosmic -= dt;
-    if (nextCosmic <= 0) {
-      if (time >= 180 && Math.random() < 0.25) {
-        cosmics.push(new Cosmic('blackhole', true));
-        clearEnemies();
-      } else {
-        cosmics.push(new Cosmic());
+    if (cicloActual < 2) {
+      nextCosmic -= dt;
+      if (nextCosmic <= 0) {
+        if (time >= 180 && Math.random() < 0.25) {
+          cosmics.push(new Cosmic('blackhole', true));
+          clearEnemies();
+        } else {
+          cosmics.push(new Cosmic());
+        }
+        nextCosmic = rand(12,20);
       }
-      nextCosmic = rand(12,20);
+    }
+    if (cicloActual === 0) {
+      nextDollar -= dt;
+      if (nextDollar <= 0) {
+        dollars.push(new Dollar());
+        nextDollar = 55;
+      }
+    }
+    if (sceneryEnabled) {
+      nextScenery -= dt;
+      if (nextScenery <= 0) {
+        scenery.push(new Scenery());
+        nextScenery = rand(1.2, 2.0);
+      }
     }
 
     // Update entities
@@ -1054,9 +1133,11 @@
     triangles.forEach(o=>o.update(dt));
     missiles.forEach(o=>o.update(dt));
     lasers.forEach(o=>o.update(dt));
+    dollars.forEach(o=>o.update(dt));
     cosmics.forEach(o=>o.update(dt));
+    scenery.forEach(o=>o.update(dt));
 
-    if (cicloActual >= 1) {
+    if (cicloActual === 1) {
       particulasOniricas.forEach(p => {
         p.y += p.vy * dt;
         if (p.y < groundY() - 50) {
@@ -1082,10 +1163,19 @@
     eyes.forEach(e => { if (e.alive && rectsOverlap(pb, e.bbox())) { e.alive=false; tryHit('eye'); } });
     missiles.forEach(m => { if (m.alive && rectsOverlap(pb, m.bbox())) { m.alive=false; tryHit('missile'); } });
     lasers.forEach(l => { if (l.alive && rectsOverlap(pb, l.bbox())) { l.alive=false; tryHit('laser'); } });
+    dollars.forEach(d => {
+      if (d.alive && rectsOverlap(pb, d.bbox())) {
+        d.alive = false;
+        lives += 1;
+        livesEl.textContent = lives;
+        lifeTipUntil = time + 1.5;
+        Audio.shield();
+      }
+    });
 
     // Cleanup
     function aliveFilter(o){ return o.alive !== false; }
-    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics].forEach(list => {
+    [reptiles, angels, eyes, triangles, missiles, lasers, cosmics, dollars, scenery].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
 
@@ -1123,7 +1213,7 @@
         ctx.lineTo(x+30, roadCenterY);
       }
       ctx.stroke();
-    } else {
+    } else if (cicloActual === 1) {
       // Cielo onírico
       const grad = ctx.createLinearGradient(0,0,0,H);
       grad.addColorStop(0,'#221433');
@@ -1147,6 +1237,23 @@
       fog.addColorStop(1, 'rgba(128,64,160,0.3)');
       ctx.fillStyle = fog;
       ctx.fillRect(0,0,W,H);
+    } else {
+      // Base subterránea alienígena
+      const grad = ctx.createLinearGradient(0,0,0,H);
+      grad.addColorStop(0,'#050608');
+      grad.addColorStop(1,'#000000');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+      // estructuras verticales
+      ctx.fillStyle = '#111';
+      for (let x = -((time*speed)%100); x < W; x += 100) {
+        ctx.fillRect(x, 0, 12, H);
+      }
+      // piso metálico
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, groundY(), W, H-groundY());
+      ctx.fillStyle = '#333';
+      ctx.fillRect(0, groundY()-2, W, 2);
     }
 
     // Render entities
@@ -1156,11 +1263,15 @@
     angels.forEach(o=>o.render(ctx));
     eyes.forEach(o=>o.render(ctx));
     missiles.forEach(o=>o.render(ctx));
+    dollars.forEach(o=>o.render(ctx));
+    scenery.forEach(o=>o.render(ctx));
     player.render(ctx);
 
     // Mensajes situacionales
     const cycleTime = time - cycleStart;
-    if (cycleTime < 3) {
+    if (time < lifeTipUntil) {
+      drawTip(`+1 ♥`, player.x()+20, player.y - player.height() - 60);
+    } else if (cycleTime < 3) {
       drawTip(`ESCUDO INICIAL 3s`, player.x()+20, player.y - player.height() - 60);
     } else if (Math.abs((cycleTime%60)-0) < 0.2 && cycleTime>59.5 && cycleTime<61) {
       drawTip(`¡ALAS ACTIVADAS!`, player.x()+20, player.y - player.height() - 60);
