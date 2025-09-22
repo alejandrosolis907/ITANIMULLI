@@ -693,9 +693,9 @@
       this.homing = homing;
       this.alive = true;
       this.ttl = 1.5;
-      if (this.homing && dog && dog.alive) {
-        dog.intercept(this);
-      }
+      this.distanceTravelled = 0;
+      this.initialDistance = Math.hypot(tx - x, ty - y);
+      this.interceptRequested = false;
     }
     update(dt) {
       if (this.homing) {
@@ -705,8 +705,19 @@
         this.vx = Math.cos(ang) * this.speed;
         this.vy = Math.sin(ang) * this.speed;
       }
-      this.x += this.vx * dt;
-      this.y += this.vy * dt;
+      const stepX = this.vx * dt;
+      const stepY = this.vy * dt;
+      this.x += stepX;
+      this.y += stepY;
+      this.distanceTravelled += Math.hypot(stepX, stepY);
+      if (this.homing && !this.interceptRequested && dog && dog.alive) {
+        const threshold = this.initialDistance * 0.5;
+        if (this.distanceTravelled >= threshold) {
+          if (dog.intercept(this)) {
+            this.interceptRequested = true;
+          }
+        }
+      }
       this.ttl -= dt;
       if (this.ttl <= 0 || this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
@@ -734,15 +745,16 @@
     constructor() {
       this.x = player.x() - 60;
       this.y = groundY();
-      this.lives = 3;
+      this.lives = 8;
       this.alive = true;
       this.state = 'idle';
       this.target = null;
     }
     intercept(missile) {
-      if (this.state !== 'idle') return;
+      if (this.state !== 'idle') return false;
       this.target = missile;
       this.state = 'jump';
+      return true;
     }
     update(dt) {
       if (this.state === 'idle') {
