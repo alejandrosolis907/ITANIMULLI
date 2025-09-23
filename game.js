@@ -1232,9 +1232,10 @@
     if (cicloActual < 2) {
       nextCosmic -= dt;
       if (nextCosmic <= 0) {
-        if (time >= 180 && Math.random() < 0.25) {
-          cosmics.push(new Cosmic('blackhole', true));
-          clearEnemies();
+        if (cycleTime >= 180 && Math.random() < 0.25) {
+          // en ciclos tempranos solo mostramos un agujero negro como evento visual
+          // sin reiniciar la secuencia completa
+          cosmics.push(new Cosmic('blackhole'));
         } else {
           cosmics.push(new Cosmic());
         }
