@@ -125,3 +125,53 @@ html, body {
   .jump-btn { display: block; }
 }
 
+.pause-btn {
+  position: fixed;
+  left: 2.5vw;
+  top: 2.5vh;
+  padding: 12px 18px;
+  font: 700 0.95rem system-ui;
+  border-radius: 12px;
+  border: none;
+  background: #ffffff20;
+  color: #fff;
+  backdrop-filter: blur(6px);
+  display: none;
+  z-index: 10001;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.pause-btn:hover,
+.pause-btn:focus-visible {
+  background: #ffffff35;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.pause-btn[aria-pressed="true"] {
+  background: #ffd16633;
+}
+
+@media (pointer: coarse) {
+  .pause-btn {
+    padding: 16px 22px;
+    font-size: 1.05rem;
+  }
+}
+
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 8, 30, 0.6);
+  color: #e2e8ff;
+  font: 700 1.6rem system-ui;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  z-index: 9999;
+  pointer-events: none;
+}
+

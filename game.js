@@ -6,6 +6,8 @@
   const ctx = canvas.getContext('2d');
   const overlay = document.getElementById('overlay');
   const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const pauseOverlay = document.getElementById('pauseOverlay');
   const bestEl = document.getElementById('best');
   const livesEl = document.getElementById('lives');
   const jumpBtn = document.getElementById('jumpBtn');
@@ -120,7 +122,7 @@
   })();
 
   // -------- Game State
-  const STATE = { MENU:0, PLAY:1, OVER:2 };
+  const STATE = { MENU:0, PLAY:1, OVER:2, PAUSE:3 };
   let state = STATE.MENU;
   let time = 0, startTs = 0, lastTs = 0, speed = 400; // px/s base ground speed
   let groundY = () => H*0.82;
@@ -158,6 +160,8 @@
   let enTransicion = false;
   let progresoTransicion = 0;
 
+  let pauseStartedAt = 0;
+
   // partículas oníricas para el segundo ciclo
   let particulasOniricas = [];
 
@@ -179,10 +183,17 @@
   const keys = new Set();
   function jump(){ if (state === STATE.PLAY) player.tryJump(); }
 
+  if (pauseBtn) {
+    pauseBtn.style.display = 'none';
+    pauseBtn.addEventListener('click', () => togglePause());
+  }
+  if (pauseOverlay) pauseOverlay.style.display = 'none';
+
   window.addEventListener('keydown', (e) => {
-    if (['ArrowUp','Space','KeyM','KeyR'].includes(e.code)) e.preventDefault();
+    if (['ArrowUp','Space','KeyM','KeyR','Escape'].includes(e.code)) e.preventDefault();
     if (e.code === 'KeyM') Audio.toggle();
     if (e.code === 'KeyR' && state !== STATE.PLAY) resetAndStart();
+    if (e.code === 'Escape' && (state === STATE.PLAY || state === STATE.PAUSE)) { togglePause(); return; }
     if (state === STATE.MENU && (e.code === 'Space' || e.code === 'ArrowUp')) { startGame(); return; }
     if (state !== STATE.PLAY) return;
     keys.add(e.code);
@@ -1143,6 +1154,12 @@
     shieldUntil = time + 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+    if (pauseBtn) {
+      pauseBtn.style.display = 'block';
+      pauseBtn.textContent = 'Pausar';
+      pauseBtn.setAttribute('aria-pressed', 'false');
+    }
 
     // reinicia partículas oníricas según ciclo
     if (cicloActual >= 1 && cicloActual < 2) {
@@ -1190,6 +1207,28 @@
     overlay.querySelector('.subtitle').textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s`;
     overlay.style.display = 'flex';
     overlay.querySelector('#startBtn').textContent = 'Reintentar (Espacio)';
+    if (pauseBtn) pauseBtn.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+  }
+
+  function togglePause(){
+    if (!pauseBtn || (state !== STATE.PLAY && state !== STATE.PAUSE)) return;
+    if (state === STATE.PLAY) {
+      state = STATE.PAUSE;
+      pauseStartedAt = performance.now() / 1000;
+      pauseBtn.textContent = 'Reanudar';
+      pauseBtn.setAttribute('aria-pressed', 'true');
+      keys.clear();
+      if (pauseOverlay) pauseOverlay.style.display = 'flex';
+    } else {
+      const now = performance.now() / 1000;
+      startTs += now - pauseStartedAt;
+      lastTs = now;
+      state = STATE.PLAY;
+      pauseBtn.textContent = 'Pausar';
+      pauseBtn.setAttribute('aria-pressed', 'false');
+      if (pauseOverlay) pauseOverlay.style.display = 'none';
+    }
   }
 
   // HUD badges
