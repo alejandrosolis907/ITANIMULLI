@@ -1076,6 +1076,11 @@
   class Scenery {
     constructor(){
       this.type = Math.random() < 0.5 ? 'rock' : 'plant';
+      this.color = '#4caf50';
+      if (this.type === 'plant') {
+        const palette = ['#4f83ff', '#7c4dff', '#a45de8', '#8e5cff'];
+        this.color = palette[Math.floor(Math.random() * palette.length)];
+      }
       this.s = rand(20, 35);
       this.x = W + this.s;
       const gY = groundY();
@@ -1100,7 +1105,7 @@
         ctx.closePath();
         ctx.fill();
       } else {
-        ctx.fillStyle = '#4caf50';
+        ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.moveTo(0, -this.s);
         ctx.bezierCurveTo(-this.s*0.3, -this.s*0.6, -this.s*0.3, -this.s*0.2, 0, 0);
