@@ -806,12 +806,77 @@
     render(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
-      ctx.fillStyle = '#bba';
-      ctx.fillRect(-20, -20, 40, 20);
-      ctx.fillRect(-15, -35, 30, 15);
-      ctx.fillStyle = '#000';
+      const bodyColor = '#d9c7ad';
+      const shadeColor = '#c3ab8c';
+      const accentColor = '#b8926f';
+      const lightColor = '#efe2cc';
+
+      // cola
+      ctx.fillStyle = accentColor;
       ctx.beginPath();
-      ctx.arc(10, -27, 3, 0, Math.PI * 2);
+      ctx.moveTo(-24, -14);
+      ctx.lineTo(-32, -20);
+      ctx.lineTo(-26, -8);
+      ctx.closePath();
+      ctx.fill();
+
+      // cuerpo principal
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(-22, -18, 36, 14);
+      // vientre sombreado
+      ctx.fillStyle = shadeColor;
+      ctx.fillRect(-20, -12, 32, 8);
+
+      // pecho claro
+      ctx.fillStyle = lightColor;
+      ctx.fillRect(4, -16, 8, 10);
+
+      // cabeza
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(12, -22, 16, 16);
+      ctx.fillStyle = shadeColor;
+      ctx.fillRect(12, -16, 14, 6);
+
+      // hocico
+      ctx.fillStyle = lightColor;
+      ctx.fillRect(22, -16, 6, 6);
+
+      // orejas
+      ctx.fillStyle = accentColor;
+      ctx.beginPath();
+      ctx.moveTo(14, -22);
+      ctx.lineTo(10, -30);
+      ctx.lineTo(18, -24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(24, -22);
+      ctx.lineTo(28, -30);
+      ctx.lineTo(30, -24);
+      ctx.closePath();
+      ctx.fill();
+
+      // patas
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(-18, -4, 6, 4);
+      ctx.fillRect(-6, -4, 6, 4);
+      ctx.fillRect(8, -4, 5, 4);
+      ctx.fillRect(18, -4, 5, 4);
+
+      // ojo
+      ctx.fillStyle = '#332621';
+      ctx.beginPath();
+      ctx.arc(18, -16, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(17.4, -16.8, 0.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // nariz
+      ctx.fillStyle = '#2b1f1a';
+      ctx.beginPath();
+      ctx.arc(28, -13, 1.8, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
