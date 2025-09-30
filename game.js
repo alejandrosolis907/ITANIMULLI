@@ -36,6 +36,7 @@
   // -------- Utils
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
   function drawStars() {
     ctx.fillStyle = '#fff';
@@ -159,6 +160,10 @@
   // variables de transición de ciclo
   let enTransicion = false;
   let progresoTransicion = 0;
+  let transitionType = null;
+  let bunker = null;
+  let bunkerSpawned = false;
+  const bunkerTransition = { active: false, startY: 0, drop: 0, progress: 0, depth: 0 };
 
   let pauseStartedAt = 0;
 
@@ -275,10 +280,18 @@
     },
     render(ctx){
       // Sombra del jugador
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.beginPath();
-      ctx.ellipse(this.x()+this.width()/2, groundY()+8, 28, 8, 0, 0, Math.PI*2);
-      ctx.fill();
+      const descending = transitionType === 'bunker' && bunkerTransition.active;
+      if (!descending) {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(this.x()+this.width()/2, groundY()+8, 28, 8, 0, 0, Math.PI*2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath();
+        ctx.ellipse(this.x()+this.width()/2, this.y + 6, 22, 6, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
 
       const x = this.x(), y = this.y, w = this.width(), h = this.height();
       ctx.fillStyle = this.color;
@@ -443,9 +456,41 @@
 
   function transicionCiclo(){
     apocalypseTriggered = true;
-    enTransicion = true;
     progresoTransicion = 0;
-    cosmics.push(new Cosmic('blackhole', true));
+    if (cicloActual === 0) {
+      transitionType = 'blackhole';
+      enTransicion = true;
+      cosmics.push(new Cosmic('blackhole', true));
+    } else if (cicloActual === 1) {
+      transitionType = 'bunker';
+      if (!bunkerSpawned) {
+        bunker = new Bunker();
+        bunkerSpawned = true;
+      }
+      clearEnemies();
+      nextReptile = nextAngel = nextEye = nextTriangle = Infinity;
+      nextCosmic = Infinity;
+      nextDollar = Infinity;
+      nextStar = Infinity;
+    }
+  }
+
+  function iniciarDescensoBunker(){
+    if (!bunker || bunkerTransition.active) return;
+    bunker.entered = true;
+    bunkerTransition.active = true;
+    bunkerTransition.progress = 0;
+    bunkerTransition.startY = player.y;
+    const visualDepth = Math.max(180, Math.min(260, H * 0.45));
+    bunkerTransition.drop = visualDepth;
+    bunkerTransition.depth = 0;
+    enTransicion = true;
+    transitionType = 'bunker';
+    progresoTransicion = 0;
+    player.vy = 0;
+    player.onGround = false;
+    clearEnemies();
+    if (dog && dog.alive) dog.alive = false;
   }
 
   // Hazards / Enemies
@@ -1116,6 +1161,99 @@
     }
   }
 
+  class Bunker {
+    constructor() {
+      this.w = 160;
+      this.h = 90;
+      this.x = W + this.w;
+      this.y = groundY();
+      this.doorWidth = 64;
+      this.doorHeight = 76;
+      this.entered = false;
+      this.lockX = null;
+      this.pulse = 0;
+      this.alive = true;
+    }
+    update(dt) {
+      this.pulse += dt;
+      if (this.entered) {
+        if (this.lockX == null) this.lockX = this.x;
+        this.x += (this.lockX - this.x) * dt * 6;
+        return;
+      }
+      this.x -= speed * dt;
+      const minX = player.x() + this.doorWidth * 0.3;
+      if (this.x < minX) this.x = minX;
+      if (this.x < -this.w) this.alive = false;
+    }
+    entranceRect() {
+      return {
+        x: this.x - this.doorWidth / 2,
+        y: this.y - this.doorHeight,
+        w: this.doorWidth,
+        h: this.doorHeight
+      };
+    }
+    render(ctx, shaftDepth = 0, highlight = false) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.fillStyle = '#1d2436';
+      ctx.fillRect(-this.w / 2, -this.h, this.w, this.h);
+      ctx.fillStyle = '#2a334a';
+      ctx.fillRect(-this.w / 2, -this.h - 16, this.w, 16);
+      ctx.fillStyle = '#0b111d';
+      ctx.fillRect(-this.doorWidth / 2 - 12, -this.doorHeight, this.doorWidth + 24, this.doorHeight);
+      ctx.fillStyle = '#04070d';
+      ctx.fillRect(-this.doorWidth / 2, -this.doorHeight, this.doorWidth, this.doorHeight);
+      const pulse = 0.45 + 0.35 * Math.sin(this.pulse * 4);
+      ctx.fillStyle = `rgba(120, 210, 255, ${pulse})`;
+      ctx.fillRect(-this.doorWidth / 2 + 6, -this.doorHeight + 10, this.doorWidth - 12, 10);
+      ctx.strokeStyle = '#4cc6ff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-this.doorWidth / 2 - 6, -this.doorHeight - 6, this.doorWidth + 12, this.doorHeight + 12);
+
+      if (shaftDepth > 0) {
+        const shaftWidth = this.doorWidth - 12;
+        const shaftTop = -this.doorHeight;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-shaftWidth / 2, shaftTop, shaftWidth, shaftDepth + this.doorHeight + 20);
+        ctx.clip();
+        ctx.fillStyle = '#050910';
+        ctx.fillRect(-shaftWidth / 2, shaftTop, shaftWidth, shaftDepth + this.doorHeight + 40);
+        ctx.strokeStyle = 'rgba(70, 120, 180, 0.45)';
+        ctx.lineWidth = 2;
+        const stepSpacing = 22;
+        for (let y = shaftTop + (shaftDepth % stepSpacing); y < shaftTop + shaftDepth + this.doorHeight; y += stepSpacing) {
+          ctx.beginPath();
+          ctx.moveTo(-shaftWidth / 2, y);
+          ctx.lineTo(-shaftWidth / 2 + shaftWidth, y + 6);
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.strokeStyle = '#1a2738';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-shaftWidth / 2, shaftTop, shaftWidth, shaftDepth + this.doorHeight);
+      }
+
+      ctx.restore();
+
+      if (highlight) {
+        const glow = 0.25 + 0.2 * Math.sin(this.pulse * 3);
+        ctx.save();
+        ctx.fillStyle = `rgba(80, 200, 255, ${glow})`;
+        ctx.beginPath();
+        ctx.moveTo(this.x - this.doorWidth * 0.45, this.y - this.doorHeight);
+        ctx.lineTo(this.x - this.doorWidth * 0.8, this.y - this.doorHeight - 70);
+        ctx.lineTo(this.x + this.doorWidth * 0.8, this.y - this.doorHeight - 70);
+        ctx.lineTo(this.x + this.doorWidth * 0.45, this.y - this.doorHeight);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
   // Collisions
   function rectsOverlap(a,b){
     return (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y);
@@ -1132,6 +1270,16 @@
     nextCosmic = rand(12,20);
     nextDollar = 55;
     nextStar = 50;
+    bunker = null;
+    bunkerSpawned = false;
+    bunkerTransition.active = false;
+    bunkerTransition.progress = 0;
+    bunkerTransition.drop = 0;
+    bunkerTransition.startY = 0;
+    bunkerTransition.depth = 0;
+    transitionType = null;
+    enTransicion = false;
+    progresoTransicion = 0;
     if (!preserve) { dog = null; dogSpawned = false; }
     if (preserve) {
       cycle++;
@@ -1288,18 +1436,39 @@
   function update(dt){
     if (enTransicion) {
       progresoTransicion += dt;
-      const cx = W/2, cy = H/2;
-      [reptiles, angels, eyes, triangles, missiles, lasers].forEach(list => {
-        list.forEach(o => {
-          if (o.x !== undefined) o.x += (cx - o.x) * dt * 2;
-          if (o.y !== undefined) o.y += (cy - o.y) * dt * 2;
+      if (transitionType === 'blackhole') {
+        const cx = W/2, cy = H/2;
+        [reptiles, angels, eyes, triangles, missiles, lasers].forEach(list => {
+          list.forEach(o => {
+            if (o.x !== undefined) o.x += (cx - o.x) * dt * 2;
+            if (o.y !== undefined) o.y += (cy - o.y) * dt * 2;
+          });
         });
-      });
-      cosmics.forEach(o=>o.update(dt));
-      if (progresoTransicion > 3) {
-        clearEnemies();
-        enTransicion = false;
-        resetAndStart(true);
+        cosmics.forEach(o=>o.update(dt));
+        if (progresoTransicion > 3) {
+          clearEnemies();
+          enTransicion = false;
+          transitionType = null;
+          resetAndStart(true);
+        }
+      } else if (transitionType === 'bunker') {
+        if (bunker) bunker.update(dt);
+        bunkerTransition.progress += dt;
+        const descentT = Math.min(1, bunkerTransition.progress / 2.2);
+        const eased = easeInOut(descentT);
+        const depth = eased * bunkerTransition.drop;
+        bunkerTransition.depth = depth;
+        const maxFoot = H - 40;
+        const targetFoot = Math.min(bunkerTransition.startY + depth, maxFoot);
+        player.y = targetFoot;
+        player.vy = 0;
+        player.onGround = false;
+        if (progresoTransicion > 3.2) {
+          bunkerTransition.active = false;
+          enTransicion = false;
+          transitionType = null;
+          resetAndStart(true);
+        }
       }
       return;
     }
@@ -1391,6 +1560,7 @@
     dollars.forEach(o=>o.update(dt));
     cosmics.forEach(o=>o.update(dt));
     scenery.forEach(o=>o.update(dt));
+    if (bunker) bunker.update(dt);
 
     if (cicloActual === 1) {
       particulasOniricas.forEach(p => {
@@ -1437,12 +1607,26 @@
       }
     });
 
+    if (transitionType === 'bunker' && bunker && !bunker.entered) {
+      const door = bunker.entranceRect();
+      const detection = {
+        x: door.x - 20,
+        y: door.y - player.height(),
+        w: door.w + 40,
+        h: door.h + player.height()
+      };
+      if (rectsOverlap(pb, detection)) {
+        iniciarDescensoBunker();
+      }
+    }
+
     // Cleanup
     function aliveFilter(o){ return o.alive !== false; }
     [reptiles, angels, eyes, triangles, missiles, lasers, cosmics, dollars, lifeStars, scenery].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
     if (dog && dog.alive === false) dog = null;
+    if (bunker && bunker.alive === false && !bunker.entered) bunker = null;
 
     // HUD
     hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives} · Fase: ${cicloActual + 1}`;
@@ -1531,6 +1715,13 @@
     lifeStars.forEach(o=>o.render(ctx));
     dollars.forEach(o=>o.render(ctx));
     scenery.forEach(o=>o.render(ctx));
+    if (bunker) {
+      const rawDepth = bunkerTransition.active ? bunkerTransition.depth : 0;
+      const maxDepth = H - bunker.y + bunker.doorHeight;
+      const shaftDepth = Math.max(0, Math.min(rawDepth, maxDepth));
+      const highlight = transitionType === 'bunker' && !bunker.entered;
+      bunker.render(ctx, shaftDepth, highlight);
+    }
     if (dog && dog.alive) dog.render(ctx);
     player.render(ctx);
 
@@ -1545,9 +1736,22 @@
     }
 
     if (enTransicion) {
-      const alpha = Math.min(1, progresoTransicion / 3);
-      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
-      ctx.fillRect(0,0,W,H);
+      if (transitionType === 'blackhole') {
+        const alpha = Math.min(1, progresoTransicion / 3);
+        ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+        ctx.fillRect(0,0,W,H);
+      } else if (transitionType === 'bunker') {
+        const alpha = Math.min(1, progresoTransicion / 2.2);
+        ctx.fillStyle = `rgba(6,12,24,${alpha})`;
+        ctx.fillRect(0,0,W,H);
+        if (bunker) {
+          const grd = ctx.createRadialGradient(bunker.x, bunker.y - bunker.doorHeight, 40, bunker.x, bunker.y - bunker.doorHeight, 220);
+          grd.addColorStop(0, 'rgba(80,200,255,0.25)');
+          grd.addColorStop(1, 'rgba(6,12,24,0)');
+          ctx.fillStyle = grd;
+          ctx.fillRect(bunker.x - 220, bunker.y - bunker.doorHeight - 220, 440, 440);
+        }
+      }
     }
   }
 
