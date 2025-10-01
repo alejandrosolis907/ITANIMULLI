@@ -82,6 +82,49 @@
     ctx.restore();
   }
 
+  function drawMetalOrb(ctx, radius, glowColor = 'rgba(120,190,255,0.35)') {
+    ctx.save();
+    if (glowColor) {
+      ctx.fillStyle = glowColor;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const body = ctx.createRadialGradient(-radius * 0.35, -radius * 0.35, radius * 0.2, 0, 0, radius);
+    body.addColorStop(0, '#f3f7ff');
+    body.addColorStop(0.45, '#c2d0dc');
+    body.addColorStop(1, '#4a5563');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // panel central
+    ctx.strokeStyle = 'rgba(40,60,80,0.7)';
+    ctx.lineWidth = radius * 0.22;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.55, Math.PI * 0.15, Math.PI * 1.85);
+    ctx.stroke();
+
+    // brillo lateral
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(-radius * 0.35, -radius * 0.3, radius * 0.35, radius * 0.55, Math.PI / 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // lente central
+    const lens = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 0.65);
+    lens.addColorStop(0, '#3bb1ff');
+    lens.addColorStop(1, '#0d1a2b');
+    ctx.fillStyle = lens;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   function drawRockyGround(ctx) {
     ctx.save();
     const gY = groundY();
@@ -649,12 +692,13 @@
   }
 
   class Angel {
-    constructor() {
+    constructor(species = 'angel') {
       this.w = 36; this.h = 60;
       this.x = W + 40; this.y = groundY() - 120 - rand(0,80);
       this.speed = speed * rand(0.6, 0.9);
       this.cooldown = rand(0.6, 1.2);
       this.alive = true; this.fired = false;
+      this.species = species;
     }
     update(dt) {
       this.x -= this.speed * dt;
@@ -677,7 +721,15 @@
       const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
       ctx.save();
       ctx.translate(this.x, this.y);
-      if (chaos) {
+      if (this.species === 'orb') {
+        const glow = chaos ? 'rgba(255,80,80,0.45)' : 'rgba(120,190,255,0.35)';
+        const radius = this.w * 0.55;
+        ctx.fillStyle = chaos ? 'rgba(255,120,120,0.5)' : 'rgba(120,200,255,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(0, radius * 0.95, radius * 0.35, radius * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        drawMetalOrb(ctx, radius, glow);
+      } else if (chaos) {
         ctx.fillStyle = '#ff3030';
         // cuerpo
         ctx.beginPath();
@@ -746,12 +798,13 @@
   }
 
   class EyeAngel {
-    constructor() {
+    constructor(species = 'wingedEye') {
       this.x = W + 40;
       this.y = groundY() - 120 - rand(20, 120);
       this.speed = speed * rand(0.7,1.0);
       this.alive = true;
       this.phase = rand(0, Math.PI*2);
+      this.species = species;
     }
     update(dt) {
       this.x -= this.speed * dt;
@@ -759,44 +812,55 @@
       if (this.x < -80) this.alive = false;
     }
     render(ctx) {
-      // ojo con alas
       ctx.save();
       ctx.translate(this.x, this.y);
-      // alas más realistas
-      ctx.fillStyle = '#f0f4ff';
-      ctx.strokeStyle = '#d0d8ff';
-      const drawWing = (dir) => {
-        ctx.save();
-        ctx.scale(dir, 1);
+      if (this.species === 'orb') {
+        const radius = 24;
+        const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
+        const glow = chaos ? 'rgba(255,80,80,0.45)' : 'rgba(120,190,255,0.4)';
+        // pequeños propulsores laterales
+        ctx.fillStyle = chaos ? 'rgba(255,120,120,0.5)' : 'rgba(120,200,255,0.45)';
         ctx.beginPath();
-        ctx.moveTo(30, -10);
-        ctx.quadraticCurveTo(80, -40, 78, 20);
-        ctx.quadraticCurveTo(58, 10, 30, 5);
-        ctx.closePath();
+        ctx.ellipse(-radius * 0.95, 0, radius * 0.2, radius * 0.35, 0, 0, Math.PI * 2);
+        ctx.ellipse(radius * 0.95, 0, radius * 0.2, radius * 0.35, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.beginPath();
-        for (let i = 0; i < 3; i++) {
-          const fx = 60 + i * 12;
-          const fy = -25 - i * 5;
-          const tx = 40 + i * 8;
-          const ty = 5 + i * 6;
+        drawMetalOrb(ctx, radius, glow);
+      } else {
+        // ojo con alas
+        ctx.fillStyle = '#f0f4ff';
+        ctx.strokeStyle = '#d0d8ff';
+        const drawWing = (dir) => {
+          ctx.save();
+          ctx.scale(dir, 1);
+          ctx.beginPath();
           ctx.moveTo(30, -10);
-          ctx.quadraticCurveTo(fx, fy, tx, ty);
-        }
-        ctx.stroke();
-        ctx.restore();
-      };
-      drawWing(-1);
-      drawWing(1);
-      // ojo
-      ctx.fillStyle = '#cde1ff';
-      ctx.beginPath();
-      ctx.ellipse(0, -20, 22, 14, 0, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = '#1a274a';
-      ctx.beginPath();
-      ctx.arc(0, -20, 6, 0, Math.PI*2);
-      ctx.fill();
+          ctx.quadraticCurveTo(80, -40, 78, 20);
+          ctx.quadraticCurveTo(58, 10, 30, 5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const fx = 60 + i * 12;
+            const fy = -25 - i * 5;
+            const tx = 40 + i * 8;
+            const ty = 5 + i * 6;
+            ctx.moveTo(30, -10);
+            ctx.quadraticCurveTo(fx, fy, tx, ty);
+          }
+          ctx.stroke();
+          ctx.restore();
+        };
+        drawWing(-1);
+        drawWing(1);
+        ctx.fillStyle = '#cde1ff';
+        ctx.beginPath();
+        ctx.ellipse(0, -20, 22, 14, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#1a274a';
+        ctx.beginPath();
+        ctx.arc(0, -20, 6, 0, Math.PI*2);
+        ctx.fill();
+      }
       ctx.restore();
     }
     bbox(){ return {x:this.x-24, y:this.y-44, w:48, h:48}; }
@@ -1550,7 +1614,8 @@
     if (cycleTime >= 12) {
       nextAngel -= dt * (chaos ? 2 : 1);
       if (nextAngel <= 0) {
-        angels.push(new Angel());
+        const angelSpecies = cicloActual === 2 ? 'orb' : 'angel';
+        angels.push(new Angel(angelSpecies));
         const early = 1 + Math.max(0, 240 - cycleTime) / 240;
         nextAngel = rand(4.5, 7.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
@@ -1558,7 +1623,8 @@
     if (cycleTime >= 18) {
       nextEye -= dt * (chaos ? 2 : 1);
       if (nextEye <= 0) {
-        eyes.push(new EyeAngel());
+        const eyeSpecies = cicloActual === 2 ? 'orb' : 'wingedEye';
+        eyes.push(new EyeAngel(eyeSpecies));
         const early = 1 + Math.max(0, 240 - cycleTime) / 240;
         nextEye = rand(5.5, 9.5) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
