@@ -495,94 +495,157 @@
 
   // Hazards / Enemies
   class Reptile {
-    constructor() {
+    constructor(species = 'reptile') {
       this.w = rand(40, 48);
       this.h = rand(90, 110);
       this.x = W + this.w + 10;
       this.y = groundY();
       this.speed = speed * rand(0.75, 1.0);
       this.alive = true;
+      this.species = species;
     }
     update(dt) {
       this.x -= this.speed * dt;
       if (this.x < -80) this.alive = false;
     }
     render(ctx) {
-      // reptiliano alto humanoide
-      ctx.fillStyle = '#2bbf66';
       ctx.save();
       ctx.translate(this.x, this.y);
-      // cuerpo
-      ctx.beginPath();
-      ctx.roundRect(-this.w*0.25, -this.h, this.w*0.5, this.h*0.6, 8);
-      ctx.fill();
-      // piernas
-      ctx.fillRect(-this.w*0.2, -this.h*0.4, this.w*0.15, this.h*0.4);
-      ctx.fillRect(this.w*0.05, -this.h*0.4, this.w*0.15, this.h*0.4);
-      // brazos
-      ctx.fillRect(-this.w*0.35, -this.h*0.75, this.w*0.1, this.h*0.35);
-      ctx.fillRect(this.w*0.25, -this.h*0.75, this.w*0.1, this.h*0.35);
-      // cabeza
-      ctx.beginPath();
-      ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
-      ctx.fill();
-      // ojos reptilianos dobles
-      const eyeY = -this.h * 0.92;
-      const eyeW = this.w * 0.08;
-      const eyeH = this.h * 0.05;
-      const eyeOffset = this.w * 0.12;
+      if (this.species === 'grey') {
+        // alienígena gris minimalista
+        const bodyColor = '#aeb7d2';
+        const limbColor = '#8f9ab8';
+        const accent = '#c5cceb';
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.roundRect(-this.w * 0.22, -this.h * 0.78, this.w * 0.44, this.h * 0.5, 18);
+        ctx.fill();
+        ctx.fillStyle = limbColor;
+        // piernas delgadas
+        ctx.fillRect(-this.w * 0.18, -this.h * 0.32, this.w * 0.12, this.h * 0.32);
+        ctx.fillRect(this.w * 0.06, -this.h * 0.32, this.w * 0.12, this.h * 0.32);
+        // brazos suaves hacia abajo
+        ctx.beginPath();
+        ctx.roundRect(-this.w * 0.36, -this.h * 0.65, this.w * 0.12, this.h * 0.28, 10);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(this.w * 0.24, -this.h * 0.65, this.w * 0.12, this.h * 0.28, 10);
+        ctx.fill();
+        // cabeza grande ovalada
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.ellipse(0, -this.h * 0.94, this.w * 0.34, this.h * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // brillo lateral para volumen
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.ellipse(-this.w * 0.1, -this.h * 0.96, this.w * 0.12, this.h * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // ojos almendrados oscuros
+        ctx.fillStyle = '#1e2b4f';
+        const eyeY = -this.h * 0.94;
+        const eyeW = this.w * 0.14;
+        const eyeH = this.h * 0.08;
+        const eyeOffset = this.w * 0.18;
+        ctx.beginPath();
+        ctx.ellipse(-eyeOffset, eyeY, eyeW, eyeH, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(eyeOffset, eyeY, eyeW, eyeH, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        // pequeño destello azul
+        ctx.fillStyle = 'rgba(120,170,255,0.6)';
+        ctx.beginPath();
+        ctx.arc(-eyeOffset + this.w * 0.04, eyeY - this.h * 0.01, this.w * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(eyeOffset - this.w * 0.04, eyeY - this.h * 0.01, this.w * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+        // hocico corto sutil
+        ctx.strokeStyle = '#1e2b4f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-this.w * 0.06, -this.h * 0.86);
+        ctx.quadraticCurveTo(0, -this.h * 0.83, this.w * 0.06, -this.h * 0.86);
+        ctx.stroke();
+      } else {
+        // reptiliano alto humanoide
+        ctx.fillStyle = '#2bbf66';
+        // cuerpo
+        ctx.beginPath();
+        ctx.roundRect(-this.w*0.25, -this.h, this.w*0.5, this.h*0.6, 8);
+        ctx.fill();
+        // piernas
+        ctx.fillRect(-this.w*0.2, -this.h*0.4, this.w*0.15, this.h*0.4);
+        ctx.fillRect(this.w*0.05, -this.h*0.4, this.w*0.15, this.h*0.4);
+        // brazos
+        ctx.fillRect(-this.w*0.35, -this.h*0.75, this.w*0.1, this.h*0.35);
+        ctx.fillRect(this.w*0.25, -this.h*0.75, this.w*0.1, this.h*0.35);
+        // cabeza
+        ctx.beginPath();
+        ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
+        ctx.fill();
+        // ojos reptilianos dobles
+        const eyeY = -this.h * 0.92;
+        const eyeW = this.w * 0.08;
+        const eyeH = this.h * 0.05;
+        const eyeOffset = this.w * 0.12;
 
-      // esclerótica blanca
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.ellipse(-eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
-      ctx.fill();
+        // esclerótica blanca
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(-eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // iris amarillos
-      ctx.fillStyle = '#ffd54f';
-      ctx.beginPath();
-      ctx.ellipse(-eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
-      ctx.fill();
+        // iris amarillos
+        ctx.fillStyle = '#ffd54f';
+        ctx.beginPath();
+        ctx.ellipse(-eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // pupilas verticales tipo línea
-      ctx.fillStyle = '#005d00';
-      const pupilW = eyeW * 0.1;
-      const pupilH = eyeH * 0.8;
-      ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
-      ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
-      // boca centrada con colmillos
-      const mouthY = -this.h * 0.86;
-      ctx.fillStyle = '#005d00';
-      ctx.beginPath();
-      ctx.arc(0, mouthY, this.w * 0.1, 0, Math.PI, false);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.moveTo(-this.w * 0.04, mouthY);
-      ctx.lineTo(-this.w * 0.02, mouthY + this.h * 0.07);
-      ctx.lineTo(0, mouthY);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(this.w * 0.04, mouthY);
-      ctx.lineTo(this.w * 0.02, mouthY + this.h * 0.07);
-      ctx.lineTo(0, mouthY);
-      ctx.fill();
-      ctx.fillStyle = '#005d00';
-      // cola
-      ctx.beginPath();
-      ctx.moveTo(-this.w*0.25, -this.h*0.2);
-      ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.3, -this.w*0.7, -this.h*0.05);
-      ctx.quadraticCurveTo(-this.w*0.4, -this.h*0.15, -this.w*0.25, -this.h*0.1);
-      ctx.fill();
+        // pupilas verticales tipo línea
+        ctx.fillStyle = '#005d00';
+        const pupilW = eyeW * 0.1;
+        const pupilH = eyeH * 0.8;
+        ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
+        ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
+        // boca centrada con colmillos
+        const mouthY = -this.h * 0.86;
+        ctx.fillStyle = '#005d00';
+        ctx.beginPath();
+        ctx.arc(0, mouthY, this.w * 0.1, 0, Math.PI, false);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.moveTo(-this.w * 0.04, mouthY);
+        ctx.lineTo(-this.w * 0.02, mouthY + this.h * 0.07);
+        ctx.lineTo(0, mouthY);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(this.w * 0.04, mouthY);
+        ctx.lineTo(this.w * 0.02, mouthY + this.h * 0.07);
+        ctx.lineTo(0, mouthY);
+        ctx.fill();
+        ctx.fillStyle = '#005d00';
+        // cola
+        ctx.beginPath();
+        ctx.moveTo(-this.w*0.25, -this.h*0.2);
+        ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.3, -this.w*0.7, -this.h*0.05);
+        ctx.quadraticCurveTo(-this.w*0.4, -this.h*0.15, -this.w*0.25, -this.h*0.1);
+        ctx.fill();
+      }
       ctx.restore();
     }
-    bbox(){ return {x:this.x - this.w*0.25, y:this.y - this.h, w:this.w*0.5, h:this.h}; }
+    bbox(){
+      const halfWidth = (this.species === 'grey' ? this.w * 0.225 : this.w * 0.25);
+      return { x: this.x - halfWidth, y: this.y - this.h, w: halfWidth * 2, h: this.h };
+    }
   }
 
   class Angel {
@@ -1479,7 +1542,8 @@
     // Spawns
     nextReptile -= dt * (chaos ? 2 : 1);
     if (nextReptile <= 0) {
-      reptiles.push(new Reptile());
+      const species = cicloActual === 2 ? 'grey' : 'reptile';
+      reptiles.push(new Reptile(species));
       const early = 1 + Math.max(0, 240 - cycleTime) / 240;
       nextReptile = rand(1.6, 2.6) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.003));
     }
