@@ -6,6 +6,8 @@
   const ctx = canvas.getContext('2d');
   const overlay = document.getElementById('overlay');
   const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const pauseOverlay = document.getElementById('pauseOverlay');
   const bestEl = document.getElementById('best');
   const livesEl = document.getElementById('lives');
   const jumpBtn = document.getElementById('jumpBtn');
@@ -34,6 +36,7 @@
   // -------- Utils
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  const easeInOut = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
   function drawStars() {
     ctx.fillStyle = '#fff';
@@ -79,6 +82,49 @@
     ctx.restore();
   }
 
+  function drawMetalOrb(ctx, radius, glowColor = 'rgba(120,190,255,0.35)') {
+    ctx.save();
+    if (glowColor) {
+      ctx.fillStyle = glowColor;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 1.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const body = ctx.createRadialGradient(-radius * 0.35, -radius * 0.35, radius * 0.2, 0, 0, radius);
+    body.addColorStop(0, '#f3f7ff');
+    body.addColorStop(0.45, '#c2d0dc');
+    body.addColorStop(1, '#4a5563');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // panel central
+    ctx.strokeStyle = 'rgba(40,60,80,0.7)';
+    ctx.lineWidth = radius * 0.22;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.55, Math.PI * 0.15, Math.PI * 1.85);
+    ctx.stroke();
+
+    // brillo lateral
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath();
+    ctx.ellipse(-radius * 0.35, -radius * 0.3, radius * 0.35, radius * 0.55, Math.PI / 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    // lente central
+    const lens = ctx.createRadialGradient(0, 0, radius * 0.2, 0, 0, radius * 0.65);
+    lens.addColorStop(0, '#3bb1ff');
+    lens.addColorStop(1, '#0d1a2b');
+    ctx.fillStyle = lens;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   function drawRockyGround(ctx) {
     ctx.save();
     const gY = groundY();
@@ -120,14 +166,14 @@
   })();
 
   // -------- Game State
-  const STATE = { MENU:0, PLAY:1, OVER:2 };
+  const STATE = { MENU:0, PLAY:1, OVER:2, PAUSE:3 };
   let state = STATE.MENU;
   let time = 0, startTs = 0, lastTs = 0, speed = 400; // px/s base ground speed
   let groundY = () => H*0.82;
   let score = 0, best = parseFloat(localStorage.getItem('runnerHighScore') || '0') || 0;
   bestEl.textContent = best.toFixed(1);
 
-  let livesBase = 10;
+  let livesBase = 15;
   let lives = livesBase;
   let shieldActive = false;
   let shieldUntil = 0;
@@ -157,6 +203,12 @@
   // variables de transición de ciclo
   let enTransicion = false;
   let progresoTransicion = 0;
+  let transitionType = null;
+  let bunker = null;
+  let bunkerSpawned = false;
+  const bunkerTransition = { active: false, startY: 0, drop: 0, progress: 0, depth: 0 };
+
+  let pauseStartedAt = 0;
 
   // partículas oníricas para el segundo ciclo
   let particulasOniricas = [];
@@ -179,10 +231,17 @@
   const keys = new Set();
   function jump(){ if (state === STATE.PLAY) player.tryJump(); }
 
+  if (pauseBtn) {
+    pauseBtn.style.display = 'none';
+    pauseBtn.addEventListener('click', () => togglePause());
+  }
+  if (pauseOverlay) pauseOverlay.style.display = 'none';
+
   window.addEventListener('keydown', (e) => {
-    if (['ArrowUp','Space','KeyM','KeyR'].includes(e.code)) e.preventDefault();
+    if (['ArrowUp','Space','KeyM','KeyR','Escape'].includes(e.code)) e.preventDefault();
     if (e.code === 'KeyM') Audio.toggle();
     if (e.code === 'KeyR' && state !== STATE.PLAY) resetAndStart();
+    if (e.code === 'Escape' && (state === STATE.PLAY || state === STATE.PAUSE)) { togglePause(); return; }
     if (state === STATE.MENU && (e.code === 'Space' || e.code === 'ArrowUp')) { startGame(); return; }
     if (state !== STATE.PLAY) return;
     keys.add(e.code);
@@ -264,10 +323,18 @@
     },
     render(ctx){
       // Sombra del jugador
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.beginPath();
-      ctx.ellipse(this.x()+this.width()/2, groundY()+8, 28, 8, 0, 0, Math.PI*2);
-      ctx.fill();
+      const descending = transitionType === 'bunker' && bunkerTransition.active;
+      if (!descending) {
+        ctx.fillStyle = 'rgba(0,0,0,0.25)';
+        ctx.beginPath();
+        ctx.ellipse(this.x()+this.width()/2, groundY()+8, 28, 8, 0, 0, Math.PI*2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.beginPath();
+        ctx.ellipse(this.x()+this.width()/2, this.y + 6, 22, 6, 0, 0, Math.PI*2);
+        ctx.fill();
+      }
 
       const x = this.x(), y = this.y, w = this.width(), h = this.height();
       ctx.fillStyle = this.color;
@@ -432,110 +499,206 @@
 
   function transicionCiclo(){
     apocalypseTriggered = true;
-    enTransicion = true;
     progresoTransicion = 0;
-    cosmics.push(new Cosmic('blackhole', true));
+    if (cicloActual === 0) {
+      transitionType = 'blackhole';
+      enTransicion = true;
+      cosmics.push(new Cosmic('blackhole', true));
+    } else if (cicloActual === 1) {
+      transitionType = 'bunker';
+      if (!bunkerSpawned) {
+        bunker = new Bunker();
+        bunkerSpawned = true;
+      }
+      clearEnemies();
+      nextReptile = nextAngel = nextEye = nextTriangle = Infinity;
+      nextCosmic = Infinity;
+      nextDollar = Infinity;
+      nextStar = Infinity;
+    }
+  }
+
+  function iniciarDescensoBunker(){
+    if (!bunker || bunkerTransition.active) return;
+    bunker.entered = true;
+    bunkerTransition.active = true;
+    bunkerTransition.progress = 0;
+    bunkerTransition.startY = player.y;
+    const visualDepth = Math.max(180, Math.min(260, H * 0.45));
+    bunkerTransition.drop = visualDepth;
+    bunkerTransition.depth = 0;
+    enTransicion = true;
+    transitionType = 'bunker';
+    progresoTransicion = 0;
+    player.vy = 0;
+    player.onGround = false;
+    clearEnemies();
+    if (dog && dog.alive) dog.alive = false;
   }
 
   // Hazards / Enemies
   class Reptile {
-    constructor() {
+    constructor(species = 'reptile') {
       this.w = rand(40, 48);
       this.h = rand(90, 110);
       this.x = W + this.w + 10;
       this.y = groundY();
       this.speed = speed * rand(0.75, 1.0);
       this.alive = true;
+      this.species = species;
     }
     update(dt) {
       this.x -= this.speed * dt;
       if (this.x < -80) this.alive = false;
     }
     render(ctx) {
-      // reptiliano alto humanoide
-      ctx.fillStyle = '#2bbf66';
       ctx.save();
       ctx.translate(this.x, this.y);
-      // cuerpo
-      ctx.beginPath();
-      ctx.roundRect(-this.w*0.25, -this.h, this.w*0.5, this.h*0.6, 8);
-      ctx.fill();
-      // piernas
-      ctx.fillRect(-this.w*0.2, -this.h*0.4, this.w*0.15, this.h*0.4);
-      ctx.fillRect(this.w*0.05, -this.h*0.4, this.w*0.15, this.h*0.4);
-      // brazos
-      ctx.fillRect(-this.w*0.35, -this.h*0.75, this.w*0.1, this.h*0.35);
-      ctx.fillRect(this.w*0.25, -this.h*0.75, this.w*0.1, this.h*0.35);
-      // cabeza
-      ctx.beginPath();
-      ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
-      ctx.fill();
-      // ojos reptilianos dobles
-      const eyeY = -this.h * 0.92;
-      const eyeW = this.w * 0.08;
-      const eyeH = this.h * 0.05;
-      const eyeOffset = this.w * 0.12;
+      if (this.species === 'grey') {
+        // alienígena gris minimalista
+        const bodyColor = '#aeb7d2';
+        const limbColor = '#8f9ab8';
+        const accent = '#c5cceb';
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.roundRect(-this.w * 0.22, -this.h * 0.78, this.w * 0.44, this.h * 0.5, 18);
+        ctx.fill();
+        ctx.fillStyle = limbColor;
+        // piernas delgadas
+        ctx.fillRect(-this.w * 0.18, -this.h * 0.32, this.w * 0.12, this.h * 0.32);
+        ctx.fillRect(this.w * 0.06, -this.h * 0.32, this.w * 0.12, this.h * 0.32);
+        // brazos suaves hacia abajo
+        ctx.beginPath();
+        ctx.roundRect(-this.w * 0.36, -this.h * 0.65, this.w * 0.12, this.h * 0.28, 10);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.roundRect(this.w * 0.24, -this.h * 0.65, this.w * 0.12, this.h * 0.28, 10);
+        ctx.fill();
+        // cabeza grande ovalada
+        ctx.fillStyle = bodyColor;
+        ctx.beginPath();
+        ctx.ellipse(0, -this.h * 0.94, this.w * 0.34, this.h * 0.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // brillo lateral para volumen
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.ellipse(-this.w * 0.1, -this.h * 0.96, this.w * 0.12, this.h * 0.08, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // ojos almendrados oscuros
+        ctx.fillStyle = '#1e2b4f';
+        const eyeY = -this.h * 0.94;
+        const eyeW = this.w * 0.14;
+        const eyeH = this.h * 0.08;
+        const eyeOffset = this.w * 0.18;
+        ctx.beginPath();
+        ctx.ellipse(-eyeOffset, eyeY, eyeW, eyeH, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(eyeOffset, eyeY, eyeW, eyeH, 0.25, 0, Math.PI * 2);
+        ctx.fill();
+        // pequeño destello azul
+        ctx.fillStyle = 'rgba(120,170,255,0.6)';
+        ctx.beginPath();
+        ctx.arc(-eyeOffset + this.w * 0.04, eyeY - this.h * 0.01, this.w * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(eyeOffset - this.w * 0.04, eyeY - this.h * 0.01, this.w * 0.035, 0, Math.PI * 2);
+        ctx.fill();
+        // hocico corto sutil
+        ctx.strokeStyle = '#1e2b4f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-this.w * 0.06, -this.h * 0.86);
+        ctx.quadraticCurveTo(0, -this.h * 0.83, this.w * 0.06, -this.h * 0.86);
+        ctx.stroke();
+      } else {
+        // reptiliano alto humanoide
+        ctx.fillStyle = '#2bbf66';
+        // cuerpo
+        ctx.beginPath();
+        ctx.roundRect(-this.w*0.25, -this.h, this.w*0.5, this.h*0.6, 8);
+        ctx.fill();
+        // piernas
+        ctx.fillRect(-this.w*0.2, -this.h*0.4, this.w*0.15, this.h*0.4);
+        ctx.fillRect(this.w*0.05, -this.h*0.4, this.w*0.15, this.h*0.4);
+        // brazos
+        ctx.fillRect(-this.w*0.35, -this.h*0.75, this.w*0.1, this.h*0.35);
+        ctx.fillRect(this.w*0.25, -this.h*0.75, this.w*0.1, this.h*0.35);
+        // cabeza
+        ctx.beginPath();
+        ctx.ellipse(0, -this.h*0.9, this.w*0.3, this.h*0.15, 0, 0, Math.PI*2);
+        ctx.fill();
+        // ojos reptilianos dobles
+        const eyeY = -this.h * 0.92;
+        const eyeW = this.w * 0.08;
+        const eyeH = this.h * 0.05;
+        const eyeOffset = this.w * 0.12;
 
-      // esclerótica blanca
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.ellipse(-eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
-      ctx.fill();
+        // esclerótica blanca
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(-eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(eyeOffset, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // iris amarillos
-      ctx.fillStyle = '#ffd54f';
-      ctx.beginPath();
-      ctx.ellipse(-eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
-      ctx.fill();
+        // iris amarillos
+        ctx.fillStyle = '#ffd54f';
+        ctx.beginPath();
+        ctx.ellipse(-eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.ellipse(eyeOffset, eyeY, eyeW * 0.6, eyeH * 0.6, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // pupilas verticales tipo línea
-      ctx.fillStyle = '#005d00';
-      const pupilW = eyeW * 0.1;
-      const pupilH = eyeH * 0.8;
-      ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
-      ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
-      // boca centrada con colmillos
-      const mouthY = -this.h * 0.86;
-      ctx.fillStyle = '#005d00';
-      ctx.beginPath();
-      ctx.arc(0, mouthY, this.w * 0.1, 0, Math.PI, false);
-      ctx.fill();
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.moveTo(-this.w * 0.04, mouthY);
-      ctx.lineTo(-this.w * 0.02, mouthY + this.h * 0.07);
-      ctx.lineTo(0, mouthY);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(this.w * 0.04, mouthY);
-      ctx.lineTo(this.w * 0.02, mouthY + this.h * 0.07);
-      ctx.lineTo(0, mouthY);
-      ctx.fill();
-      ctx.fillStyle = '#005d00';
-      // cola
-      ctx.beginPath();
-      ctx.moveTo(-this.w*0.25, -this.h*0.2);
-      ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.3, -this.w*0.7, -this.h*0.05);
-      ctx.quadraticCurveTo(-this.w*0.4, -this.h*0.15, -this.w*0.25, -this.h*0.1);
-      ctx.fill();
+        // pupilas verticales tipo línea
+        ctx.fillStyle = '#005d00';
+        const pupilW = eyeW * 0.1;
+        const pupilH = eyeH * 0.8;
+        ctx.fillRect(-eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
+        ctx.fillRect(eyeOffset - pupilW / 2, eyeY - pupilH / 2, pupilW, pupilH);
+        // boca centrada con colmillos
+        const mouthY = -this.h * 0.86;
+        ctx.fillStyle = '#005d00';
+        ctx.beginPath();
+        ctx.arc(0, mouthY, this.w * 0.1, 0, Math.PI, false);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.moveTo(-this.w * 0.04, mouthY);
+        ctx.lineTo(-this.w * 0.02, mouthY + this.h * 0.07);
+        ctx.lineTo(0, mouthY);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(this.w * 0.04, mouthY);
+        ctx.lineTo(this.w * 0.02, mouthY + this.h * 0.07);
+        ctx.lineTo(0, mouthY);
+        ctx.fill();
+        ctx.fillStyle = '#005d00';
+        // cola
+        ctx.beginPath();
+        ctx.moveTo(-this.w*0.25, -this.h*0.2);
+        ctx.quadraticCurveTo(-this.w*0.6, -this.h*0.3, -this.w*0.7, -this.h*0.05);
+        ctx.quadraticCurveTo(-this.w*0.4, -this.h*0.15, -this.w*0.25, -this.h*0.1);
+        ctx.fill();
+      }
       ctx.restore();
     }
-    bbox(){ return {x:this.x - this.w*0.25, y:this.y - this.h, w:this.w*0.5, h:this.h}; }
+    bbox(){
+      const halfWidth = (this.species === 'grey' ? this.w * 0.225 : this.w * 0.25);
+      return { x: this.x - halfWidth, y: this.y - this.h, w: halfWidth * 2, h: this.h };
+    }
   }
 
   class Angel {
-    constructor() {
+    constructor(species = 'angel') {
       this.w = 36; this.h = 60;
       this.x = W + 40; this.y = groundY() - 120 - rand(0,80);
       this.speed = speed * rand(0.6, 0.9);
       this.cooldown = rand(0.6, 1.2);
       this.alive = true; this.fired = false;
+      this.species = species;
     }
     update(dt) {
       this.x -= this.speed * dt;
@@ -558,7 +721,15 @@
       const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
       ctx.save();
       ctx.translate(this.x, this.y);
-      if (chaos) {
+      if (this.species === 'orb') {
+        const glow = chaos ? 'rgba(255,80,80,0.45)' : 'rgba(120,190,255,0.35)';
+        const radius = this.w * 0.55;
+        ctx.fillStyle = chaos ? 'rgba(255,120,120,0.5)' : 'rgba(120,200,255,0.45)';
+        ctx.beginPath();
+        ctx.ellipse(0, radius * 0.95, radius * 0.35, radius * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        drawMetalOrb(ctx, radius, glow);
+      } else if (chaos) {
         ctx.fillStyle = '#ff3030';
         // cuerpo
         ctx.beginPath();
@@ -627,12 +798,13 @@
   }
 
   class EyeAngel {
-    constructor() {
+    constructor(species = 'wingedEye') {
       this.x = W + 40;
       this.y = groundY() - 120 - rand(20, 120);
       this.speed = speed * rand(0.7,1.0);
       this.alive = true;
       this.phase = rand(0, Math.PI*2);
+      this.species = species;
     }
     update(dt) {
       this.x -= this.speed * dt;
@@ -640,44 +812,55 @@
       if (this.x < -80) this.alive = false;
     }
     render(ctx) {
-      // ojo con alas
       ctx.save();
       ctx.translate(this.x, this.y);
-      // alas más realistas
-      ctx.fillStyle = '#f0f4ff';
-      ctx.strokeStyle = '#d0d8ff';
-      const drawWing = (dir) => {
-        ctx.save();
-        ctx.scale(dir, 1);
+      if (this.species === 'orb') {
+        const radius = 24;
+        const chaos = (time - cycleStart) >= 90 && (time - cycleStart) < 115 && !apocalypseTriggered;
+        const glow = chaos ? 'rgba(255,80,80,0.45)' : 'rgba(120,190,255,0.4)';
+        // pequeños propulsores laterales
+        ctx.fillStyle = chaos ? 'rgba(255,120,120,0.5)' : 'rgba(120,200,255,0.45)';
         ctx.beginPath();
-        ctx.moveTo(30, -10);
-        ctx.quadraticCurveTo(80, -40, 78, 20);
-        ctx.quadraticCurveTo(58, 10, 30, 5);
-        ctx.closePath();
+        ctx.ellipse(-radius * 0.95, 0, radius * 0.2, radius * 0.35, 0, 0, Math.PI * 2);
+        ctx.ellipse(radius * 0.95, 0, radius * 0.2, radius * 0.35, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.beginPath();
-        for (let i = 0; i < 3; i++) {
-          const fx = 60 + i * 12;
-          const fy = -25 - i * 5;
-          const tx = 40 + i * 8;
-          const ty = 5 + i * 6;
+        drawMetalOrb(ctx, radius, glow);
+      } else {
+        // ojo con alas
+        ctx.fillStyle = '#f0f4ff';
+        ctx.strokeStyle = '#d0d8ff';
+        const drawWing = (dir) => {
+          ctx.save();
+          ctx.scale(dir, 1);
+          ctx.beginPath();
           ctx.moveTo(30, -10);
-          ctx.quadraticCurveTo(fx, fy, tx, ty);
-        }
-        ctx.stroke();
-        ctx.restore();
-      };
-      drawWing(-1);
-      drawWing(1);
-      // ojo
-      ctx.fillStyle = '#cde1ff';
-      ctx.beginPath();
-      ctx.ellipse(0, -20, 22, 14, 0, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = '#1a274a';
-      ctx.beginPath();
-      ctx.arc(0, -20, 6, 0, Math.PI*2);
-      ctx.fill();
+          ctx.quadraticCurveTo(80, -40, 78, 20);
+          ctx.quadraticCurveTo(58, 10, 30, 5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const fx = 60 + i * 12;
+            const fy = -25 - i * 5;
+            const tx = 40 + i * 8;
+            const ty = 5 + i * 6;
+            ctx.moveTo(30, -10);
+            ctx.quadraticCurveTo(fx, fy, tx, ty);
+          }
+          ctx.stroke();
+          ctx.restore();
+        };
+        drawWing(-1);
+        drawWing(1);
+        ctx.fillStyle = '#cde1ff';
+        ctx.beginPath();
+        ctx.ellipse(0, -20, 22, 14, 0, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#1a274a';
+        ctx.beginPath();
+        ctx.arc(0, -20, 6, 0, Math.PI*2);
+        ctx.fill();
+      }
       ctx.restore();
     }
     bbox(){ return {x:this.x-24, y:this.y-44, w:48, h:48}; }
@@ -693,9 +876,9 @@
       this.homing = homing;
       this.alive = true;
       this.ttl = 1.5;
-      if (this.homing && dog && dog.alive) {
-        dog.intercept(this);
-      }
+      this.distanceTravelled = 0;
+      this.initialDistance = Math.hypot(tx - x, ty - y);
+      this.interceptRequested = false;
     }
     update(dt) {
       if (this.homing) {
@@ -705,8 +888,19 @@
         this.vx = Math.cos(ang) * this.speed;
         this.vy = Math.sin(ang) * this.speed;
       }
-      this.x += this.vx * dt;
-      this.y += this.vy * dt;
+      const stepX = this.vx * dt;
+      const stepY = this.vy * dt;
+      this.x += stepX;
+      this.y += stepY;
+      this.distanceTravelled += Math.hypot(stepX, stepY);
+      if (this.homing && !this.interceptRequested && dog && dog.alive) {
+        const threshold = this.initialDistance * 0.5;
+        if (this.distanceTravelled >= threshold) {
+          if (dog.intercept(this)) {
+            this.interceptRequested = true;
+          }
+        }
+      }
       this.ttl -= dt;
       if (this.ttl <= 0 || this.x < -40 || this.x > W + 40 || this.y < -40 || this.y > H + 40) this.alive = false;
     }
@@ -734,15 +928,16 @@
     constructor() {
       this.x = player.x() - 60;
       this.y = groundY();
-      this.lives = 3;
+      this.lives = 8;
       this.alive = true;
       this.state = 'idle';
       this.target = null;
     }
     intercept(missile) {
-      if (this.state !== 'idle') return;
+      if (this.state !== 'idle') return false;
       this.target = missile;
       this.state = 'jump';
+      return true;
     }
     update(dt) {
       if (this.state === 'idle') {
@@ -794,12 +989,77 @@
     render(ctx) {
       ctx.save();
       ctx.translate(this.x, this.y);
-      ctx.fillStyle = '#bba';
-      ctx.fillRect(-20, -20, 40, 20);
-      ctx.fillRect(-15, -35, 30, 15);
-      ctx.fillStyle = '#000';
+      const bodyColor = '#d9c7ad';
+      const shadeColor = '#c3ab8c';
+      const accentColor = '#b8926f';
+      const lightColor = '#efe2cc';
+
+      // cola
+      ctx.fillStyle = accentColor;
       ctx.beginPath();
-      ctx.arc(10, -27, 3, 0, Math.PI * 2);
+      ctx.moveTo(-24, -14);
+      ctx.lineTo(-32, -20);
+      ctx.lineTo(-26, -8);
+      ctx.closePath();
+      ctx.fill();
+
+      // cuerpo principal
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(-22, -18, 36, 14);
+      // vientre sombreado
+      ctx.fillStyle = shadeColor;
+      ctx.fillRect(-20, -12, 32, 8);
+
+      // pecho claro
+      ctx.fillStyle = lightColor;
+      ctx.fillRect(4, -16, 8, 10);
+
+      // cabeza
+      ctx.fillStyle = bodyColor;
+      ctx.fillRect(12, -22, 16, 16);
+      ctx.fillStyle = shadeColor;
+      ctx.fillRect(12, -16, 14, 6);
+
+      // hocico
+      ctx.fillStyle = lightColor;
+      ctx.fillRect(22, -16, 6, 6);
+
+      // orejas
+      ctx.fillStyle = accentColor;
+      ctx.beginPath();
+      ctx.moveTo(14, -22);
+      ctx.lineTo(10, -30);
+      ctx.lineTo(18, -24);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(24, -22);
+      ctx.lineTo(28, -30);
+      ctx.lineTo(30, -24);
+      ctx.closePath();
+      ctx.fill();
+
+      // patas
+      ctx.fillStyle = accentColor;
+      ctx.fillRect(-18, -4, 6, 4);
+      ctx.fillRect(-6, -4, 6, 4);
+      ctx.fillRect(8, -4, 5, 4);
+      ctx.fillRect(18, -4, 5, 4);
+
+      // ojo
+      ctx.fillStyle = '#332621';
+      ctx.beginPath();
+      ctx.arc(18, -16, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.arc(17.4, -16.8, 0.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // nariz
+      ctx.fillStyle = '#2b1f1a';
+      ctx.beginPath();
+      ctx.arc(28, -13, 1.8, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -988,6 +1248,11 @@
   class Scenery {
     constructor(){
       this.type = Math.random() < 0.5 ? 'rock' : 'plant';
+      this.color = '#4caf50';
+      if (this.type === 'plant') {
+        const palette = ['#4f83ff', '#7c4dff', '#a45de8', '#8e5cff'];
+        this.color = palette[Math.floor(Math.random() * palette.length)];
+      }
       this.s = rand(20, 35);
       this.x = W + this.s;
       const gY = groundY();
@@ -1012,7 +1277,7 @@
         ctx.closePath();
         ctx.fill();
       } else {
-        ctx.fillStyle = '#4caf50';
+        ctx.fillStyle = this.color;
         ctx.beginPath();
         ctx.moveTo(0, -this.s);
         ctx.bezierCurveTo(-this.s*0.3, -this.s*0.6, -this.s*0.3, -this.s*0.2, 0, 0);
@@ -1020,6 +1285,99 @@
         ctx.fill();
       }
       ctx.restore();
+    }
+  }
+
+  class Bunker {
+    constructor() {
+      this.w = 160;
+      this.h = 90;
+      this.x = W + this.w;
+      this.y = groundY();
+      this.doorWidth = 64;
+      this.doorHeight = 76;
+      this.entered = false;
+      this.lockX = null;
+      this.pulse = 0;
+      this.alive = true;
+    }
+    update(dt) {
+      this.pulse += dt;
+      if (this.entered) {
+        if (this.lockX == null) this.lockX = this.x;
+        this.x += (this.lockX - this.x) * dt * 6;
+        return;
+      }
+      this.x -= speed * dt;
+      const minX = player.x() + this.doorWidth * 0.3;
+      if (this.x < minX) this.x = minX;
+      if (this.x < -this.w) this.alive = false;
+    }
+    entranceRect() {
+      return {
+        x: this.x - this.doorWidth / 2,
+        y: this.y - this.doorHeight,
+        w: this.doorWidth,
+        h: this.doorHeight
+      };
+    }
+    render(ctx, shaftDepth = 0, highlight = false) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.fillStyle = '#1d2436';
+      ctx.fillRect(-this.w / 2, -this.h, this.w, this.h);
+      ctx.fillStyle = '#2a334a';
+      ctx.fillRect(-this.w / 2, -this.h - 16, this.w, 16);
+      ctx.fillStyle = '#0b111d';
+      ctx.fillRect(-this.doorWidth / 2 - 12, -this.doorHeight, this.doorWidth + 24, this.doorHeight);
+      ctx.fillStyle = '#04070d';
+      ctx.fillRect(-this.doorWidth / 2, -this.doorHeight, this.doorWidth, this.doorHeight);
+      const pulse = 0.45 + 0.35 * Math.sin(this.pulse * 4);
+      ctx.fillStyle = `rgba(120, 210, 255, ${pulse})`;
+      ctx.fillRect(-this.doorWidth / 2 + 6, -this.doorHeight + 10, this.doorWidth - 12, 10);
+      ctx.strokeStyle = '#4cc6ff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-this.doorWidth / 2 - 6, -this.doorHeight - 6, this.doorWidth + 12, this.doorHeight + 12);
+
+      if (shaftDepth > 0) {
+        const shaftWidth = this.doorWidth - 12;
+        const shaftTop = -this.doorHeight;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-shaftWidth / 2, shaftTop, shaftWidth, shaftDepth + this.doorHeight + 20);
+        ctx.clip();
+        ctx.fillStyle = '#050910';
+        ctx.fillRect(-shaftWidth / 2, shaftTop, shaftWidth, shaftDepth + this.doorHeight + 40);
+        ctx.strokeStyle = 'rgba(70, 120, 180, 0.45)';
+        ctx.lineWidth = 2;
+        const stepSpacing = 22;
+        for (let y = shaftTop + (shaftDepth % stepSpacing); y < shaftTop + shaftDepth + this.doorHeight; y += stepSpacing) {
+          ctx.beginPath();
+          ctx.moveTo(-shaftWidth / 2, y);
+          ctx.lineTo(-shaftWidth / 2 + shaftWidth, y + 6);
+          ctx.stroke();
+        }
+        ctx.restore();
+        ctx.strokeStyle = '#1a2738';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-shaftWidth / 2, shaftTop, shaftWidth, shaftDepth + this.doorHeight);
+      }
+
+      ctx.restore();
+
+      if (highlight) {
+        const glow = 0.25 + 0.2 * Math.sin(this.pulse * 3);
+        ctx.save();
+        ctx.fillStyle = `rgba(80, 200, 255, ${glow})`;
+        ctx.beginPath();
+        ctx.moveTo(this.x - this.doorWidth * 0.45, this.y - this.doorHeight);
+        ctx.lineTo(this.x - this.doorWidth * 0.8, this.y - this.doorHeight - 70);
+        ctx.lineTo(this.x + this.doorWidth * 0.8, this.y - this.doorHeight - 70);
+        ctx.lineTo(this.x + this.doorWidth * 0.45, this.y - this.doorHeight);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
     }
   }
 
@@ -1039,6 +1397,16 @@
     nextCosmic = rand(12,20);
     nextDollar = 55;
     nextStar = 50;
+    bunker = null;
+    bunkerSpawned = false;
+    bunkerTransition.active = false;
+    bunkerTransition.progress = 0;
+    bunkerTransition.drop = 0;
+    bunkerTransition.startY = 0;
+    bunkerTransition.depth = 0;
+    transitionType = null;
+    enTransicion = false;
+    progresoTransicion = 0;
     if (!preserve) { dog = null; dogSpawned = false; }
     if (preserve) {
       cycle++;
@@ -1066,6 +1434,12 @@
     shieldUntil = time + 3; shieldActive = true; Audio.shield();
     wingBoosts = 0; wingActiveUntil = 0;
     overlay.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+    if (pauseBtn) {
+      pauseBtn.style.display = 'block';
+      pauseBtn.textContent = 'Pausar';
+      pauseBtn.setAttribute('aria-pressed', 'false');
+    }
 
     // reinicia partículas oníricas según ciclo
     if (cicloActual >= 1 && cicloActual < 2) {
@@ -1113,6 +1487,28 @@
     overlay.querySelector('.subtitle').textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s`;
     overlay.style.display = 'flex';
     overlay.querySelector('#startBtn').textContent = 'Reintentar (Espacio)';
+    if (pauseBtn) pauseBtn.style.display = 'none';
+    if (pauseOverlay) pauseOverlay.style.display = 'none';
+  }
+
+  function togglePause(){
+    if (!pauseBtn || (state !== STATE.PLAY && state !== STATE.PAUSE)) return;
+    if (state === STATE.PLAY) {
+      state = STATE.PAUSE;
+      pauseStartedAt = performance.now() / 1000;
+      pauseBtn.textContent = 'Reanudar';
+      pauseBtn.setAttribute('aria-pressed', 'true');
+      keys.clear();
+      if (pauseOverlay) pauseOverlay.style.display = 'flex';
+    } else {
+      const now = performance.now() / 1000;
+      startTs += now - pauseStartedAt;
+      lastTs = now;
+      state = STATE.PLAY;
+      pauseBtn.textContent = 'Pausar';
+      pauseBtn.setAttribute('aria-pressed', 'false');
+      if (pauseOverlay) pauseOverlay.style.display = 'none';
+    }
   }
 
   // HUD badges
@@ -1167,18 +1563,39 @@
   function update(dt){
     if (enTransicion) {
       progresoTransicion += dt;
-      const cx = W/2, cy = H/2;
-      [reptiles, angels, eyes, triangles, missiles, lasers].forEach(list => {
-        list.forEach(o => {
-          if (o.x !== undefined) o.x += (cx - o.x) * dt * 2;
-          if (o.y !== undefined) o.y += (cy - o.y) * dt * 2;
+      if (transitionType === 'blackhole') {
+        const cx = W/2, cy = H/2;
+        [reptiles, angels, eyes, triangles, missiles, lasers].forEach(list => {
+          list.forEach(o => {
+            if (o.x !== undefined) o.x += (cx - o.x) * dt * 2;
+            if (o.y !== undefined) o.y += (cy - o.y) * dt * 2;
+          });
         });
-      });
-      cosmics.forEach(o=>o.update(dt));
-      if (progresoTransicion > 3) {
-        clearEnemies();
-        enTransicion = false;
-        resetAndStart(true);
+        cosmics.forEach(o=>o.update(dt));
+        if (progresoTransicion > 3) {
+          clearEnemies();
+          enTransicion = false;
+          transitionType = null;
+          resetAndStart(true);
+        }
+      } else if (transitionType === 'bunker') {
+        if (bunker) bunker.update(dt);
+        bunkerTransition.progress += dt;
+        const descentT = Math.min(1, bunkerTransition.progress / 2.2);
+        const eased = easeInOut(descentT);
+        const depth = eased * bunkerTransition.drop;
+        bunkerTransition.depth = depth;
+        const maxFoot = H - 40;
+        const targetFoot = Math.min(bunkerTransition.startY + depth, maxFoot);
+        player.y = targetFoot;
+        player.vy = 0;
+        player.onGround = false;
+        if (progresoTransicion > 3.2) {
+          bunkerTransition.active = false;
+          enTransicion = false;
+          transitionType = null;
+          resetAndStart(true);
+        }
       }
       return;
     }
@@ -1189,14 +1606,16 @@
     // Spawns
     nextReptile -= dt * (chaos ? 2 : 1);
     if (nextReptile <= 0) {
-      reptiles.push(new Reptile());
+      const species = cicloActual === 2 ? 'grey' : 'reptile';
+      reptiles.push(new Reptile(species));
       const early = 1 + Math.max(0, 240 - cycleTime) / 240;
       nextReptile = rand(1.6, 2.6) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.003));
     }
     if (cycleTime >= 12) {
       nextAngel -= dt * (chaos ? 2 : 1);
       if (nextAngel <= 0) {
-        angels.push(new Angel());
+        const angelSpecies = cicloActual === 2 ? 'orb' : 'angel';
+        angels.push(new Angel(angelSpecies));
         const early = 1 + Math.max(0, 240 - cycleTime) / 240;
         nextAngel = rand(4.5, 7.0) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
@@ -1204,7 +1623,8 @@
     if (cycleTime >= 18) {
       nextEye -= dt * (chaos ? 2 : 1);
       if (nextEye <= 0) {
-        eyes.push(new EyeAngel());
+        const eyeSpecies = cicloActual === 2 ? 'orb' : 'wingedEye';
+        eyes.push(new EyeAngel(eyeSpecies));
         const early = 1 + Math.max(0, 240 - cycleTime) / 240;
         nextEye = rand(5.5, 9.5) * early / (difficulty * (1 + Math.max(0, time - 240) * 0.002));
       }
@@ -1220,9 +1640,10 @@
     if (cicloActual < 2) {
       nextCosmic -= dt;
       if (nextCosmic <= 0) {
-        if (time >= 180 && Math.random() < 0.25) {
-          cosmics.push(new Cosmic('blackhole', true));
-          clearEnemies();
+        if (cycleTime >= 180 && Math.random() < 0.25) {
+          // en ciclos tempranos solo mostramos un agujero negro como evento visual
+          // sin reiniciar la secuencia completa
+          cosmics.push(new Cosmic('blackhole'));
         } else {
           cosmics.push(new Cosmic());
         }
@@ -1269,6 +1690,7 @@
     dollars.forEach(o=>o.update(dt));
     cosmics.forEach(o=>o.update(dt));
     scenery.forEach(o=>o.update(dt));
+    if (bunker) bunker.update(dt);
 
     if (cicloActual === 1) {
       particulasOniricas.forEach(p => {
@@ -1315,12 +1737,26 @@
       }
     });
 
+    if (transitionType === 'bunker' && bunker && !bunker.entered) {
+      const door = bunker.entranceRect();
+      const detection = {
+        x: door.x - 20,
+        y: door.y - player.height(),
+        w: door.w + 40,
+        h: door.h + player.height()
+      };
+      if (rectsOverlap(pb, detection)) {
+        iniciarDescensoBunker();
+      }
+    }
+
     // Cleanup
     function aliveFilter(o){ return o.alive !== false; }
     [reptiles, angels, eyes, triangles, missiles, lasers, cosmics, dollars, lifeStars, scenery].forEach(list => {
       for (let i=list.length-1;i>=0;i--) if (list[i].alive===false) list.splice(i,1);
     });
     if (dog && dog.alive === false) dog = null;
+    if (bunker && bunker.alive === false && !bunker.entered) bunker = null;
 
     // HUD
     hud.scorePill.textContent = `Tiempo: ${score.toFixed(1)} s · Récord: ${best.toFixed(1)} s · Vidas: ${lives} · Fase: ${cicloActual + 1}`;
@@ -1409,6 +1845,13 @@
     lifeStars.forEach(o=>o.render(ctx));
     dollars.forEach(o=>o.render(ctx));
     scenery.forEach(o=>o.render(ctx));
+    if (bunker) {
+      const rawDepth = bunkerTransition.active ? bunkerTransition.depth : 0;
+      const maxDepth = H - bunker.y + bunker.doorHeight;
+      const shaftDepth = Math.max(0, Math.min(rawDepth, maxDepth));
+      const highlight = transitionType === 'bunker' && !bunker.entered;
+      bunker.render(ctx, shaftDepth, highlight);
+    }
     if (dog && dog.alive) dog.render(ctx);
     player.render(ctx);
 
@@ -1423,9 +1866,22 @@
     }
 
     if (enTransicion) {
-      const alpha = Math.min(1, progresoTransicion / 3);
-      ctx.fillStyle = `rgba(0,0,0,${alpha})`;
-      ctx.fillRect(0,0,W,H);
+      if (transitionType === 'blackhole') {
+        const alpha = Math.min(1, progresoTransicion / 3);
+        ctx.fillStyle = `rgba(0,0,0,${alpha})`;
+        ctx.fillRect(0,0,W,H);
+      } else if (transitionType === 'bunker') {
+        const alpha = Math.min(1, progresoTransicion / 2.2);
+        ctx.fillStyle = `rgba(6,12,24,${alpha})`;
+        ctx.fillRect(0,0,W,H);
+        if (bunker) {
+          const grd = ctx.createRadialGradient(bunker.x, bunker.y - bunker.doorHeight, 40, bunker.x, bunker.y - bunker.doorHeight, 220);
+          grd.addColorStop(0, 'rgba(80,200,255,0.25)');
+          grd.addColorStop(1, 'rgba(6,12,24,0)');
+          ctx.fillStyle = grd;
+          ctx.fillRect(bunker.x - 220, bunker.y - bunker.doorHeight - 220, 440, 440);
+        }
+      }
     }
   }
 
